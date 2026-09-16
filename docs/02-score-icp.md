@@ -12,15 +12,19 @@ Un cociente **LTV : CAC** por prestador, donde:
 - **LTV** es el valor de la **cuenta completa a 24 meses** —toda la escalera de
   cross-sell—, no solo la ARL de entrada.
 
-El score que se ve es el **percentil** de ese cociente dentro del universo. Un score
-de 93 significa: *esta cuenta está en el 7 % mejor*. Por eso no hay empates arriba y
-no hay que recalibrar nada cuando se mueve un peso.
+El score se obtiene estandarizando el **logaritmo** del cociente: resultó casi
+normal (media −3,614, mediana −3,59, desviación 0,823 sobre 10.646 filas).
+
+> **50 es el promedio del universo. Cada 10 puntos es una desviación estándar.**
 
 | Prioridad | Qué es | Cuántas hay hoy |
 |---|---|---|
-| **alta** | percentil ≥ 90 | 1.066 |
-| **media** | percentil ≥ 65 | 2.647 |
-| **baja** | el resto | 6.933 |
+| **alta** | ≥ 63 · más de 1,3 desviaciones sobre el promedio | 783 |
+| **media** | ≥ 54 | 1.984 |
+| **baja** | el resto | 7.879 |
+
+Rango observado: 1,2 a 88,4. **Nada se pega al techo ni al piso**, así que el orden
+tiene resolución en todo el recorrido.
 
 ## ⚠️ Los pesos de hoy son un punto de partida
 
@@ -29,18 +33,60 @@ lógica del método comercial, no de datos.** Sirven para ordenar desde el prime
 y se corrigen con cierres reales (ver abajo). No los presentes como un modelo
 validado, porque no lo es todavía.
 
-Lo único calibrado contra datos es el **reparto** (10 / 25 / 65 %), que se fijó
-mirando la distribución real del universo el 16-sep-2026.
+Lo único calibrado contra datos es la **escala**: `centro`, `dispersion` y
+`puntos_por_sigma` salieron de medir la distribución real del cociente el
+16-sep-2026. El reparto que producen hoy es 7 % alta · 19 % media · 74 % baja.
+
+## Por qué el CAC se rehizo (v2)
+
+La primera versión estimaba el esfuerzo con una tabla de cuatro tramos de planta.
+Medido sobre las 10.646 filas, el resultado fue que **el CAC tomaba solo 13 valores
+y el 84,4 % de las empresas compartía exactamente el mismo (2,60)**. El cociente
+correlacionaba 0,94 con el LTV y 0,26 con el CAC: el esfuerzo no estaba pesando.
+
+La causa: dentro del tramo «menos de 50 personas» —9.737 empresas, el 91 % del
+universo— **las sedes van de 1 a 48 y los municipios de 1 a 20**. La planta sola no
+describe la estructura de una organización. Hay 111 prestadores de más de 100
+personas con una sola sede y 116 con más de diez: perfiles opuestos que recibían
+idéntico trato.
+
+Ahora el esfuerzo se estima desde la **estructura**, con datos duros del REPS:
+
+```
+interlocutores = 1 + k_sedes·log2(1+sedes) + k_tamaño·log2(1+planta/ancla)
+ciclo          = base + c_dispersión·log2(1+municipios) + c_tamaño·log2(1+planta/ancla)
+dispersión     = log2(1+departamentos)
+```
+
+`log2` por dos razones: pasar de 1 a 4 sedes cambia la venta mucho más que pasar de
+40 a 43, y **absorbe el ruido de los datos** — que la planta esté mal por un factor
+de 2 mueve el término en 1 unidad, no en 100.
+
+Resultado: el CAC pasó de **13 valores a 682**, con rango 4,9 a 21,4.
+
+### La segunda corrección: la escala
+
+Con el CAC arreglado, el score seguía saturando. El percentil se calculaba contra un
+universo donde el 91 % son micro-prestadores que nunca se van a trabajar, así que
+**cualquier IPS de más de 100 personas caía automáticamente sobre el percentil 98**:
+dentro de la lista de trabajo todas salían con 98,7–98,9 sin importar su estructura.
+
+Por eso el score dejó de ser percentil y pasó a ser el logaritmo del cociente
+estandarizado. En una lista filtrada típica (291 IPS de la Costa) los scores ahora
+se reparten entre 59 y 87 con 29 valores distintos, en vez de amontonarse en 98.
 
 ## Qué empuja el score hacia arriba
 
-**Del lado del valor**
+**Del lado del valor** — cinco variables, dos de ellas dato duro, para que el score
+no dependa de que la planta estimada sea exacta
 
 | Variable | Peso inicial | Por qué |
 |---|---|---|
-| Contratistas tercerizados | **1,3** | El más alto a propósito. Es la brecha entre fuerza laboral y nómina propia: el volumen de médicos contratistas que habilita el ancla de RC de contratistas, que es lo que de verdad retiene la cuenta. |
-| Planta en nómina | 1,0 | Base de la prima de ARL, el ramo de entrada. |
-| Crecimiento 19→21 | 0,7 | Una IPS que crece tiene más recorrido de cross-sell. |
+| Contratistas tercerizados | **1,2** | El más alto a propósito. Brecha entre fuerza laboral y nómina propia: el volumen de médicos contratistas que habilita el ancla de RC de contratistas. |
+| Planta en nómina | 0,9 | Base de la prima de ARL. **Dato estimado**, por eso pesa menos que antes y no va solo. |
+| Capacidad instalada | 0,8 | **Dato duro.** Camas ×3, salas de cirugía ×5, consultorios ×1, ambulancias ×2: una sala expone mucho más que un consultorio. |
+| Servicios habilitados | 0,6 | **Dato duro.** Superficie de cross-sell: cada servicio es exposición que alguien tiene que amparar. |
+| Crecimiento 19→21 | 0,6 | Una IPS que crece tiene más recorrido de cross-sell. |
 | Señal de reclasificación | ×1,35 | Habilitó cirugía, UCI, oncológico, quemados, salud mental o trasplantes, y con alta probabilidad sigue cotizando ARL en la clase III inicial. |
 | Servicio nuevo en 12 meses | ×1,20 | Disparador público y fechado. |
 
@@ -48,10 +94,15 @@ mirando la distribución real del universo el 16-sep-2026.
 
 | Variable | Peso inicial | Por qué |
 |---|---|---|
-| Decide un corporativo lejos | **1,2** | La fricción más cara: no se resuelve con más visitas. |
-| Interlocutores | 1,0 | Lo que más alarga un ciclo. |
-| Duración del ciclo | 0,6 | Pesa menos porque el tiempo se paralelice entre cuentas; convencer gente no. |
+| Interlocutores | 1,0 | Lo que más alarga un ciclo. Se estima de sedes y tamaño. |
+| Dispersión geográfica | 0,9 | Departamentos: desplazamiento y distancia a quien decide. |
+| Duración del ciclo | 0,6 | Pesa menos porque el tiempo se paraleliza entre cuentas; convencer gente no. Crece con los municipios. |
 | Datos de contacto que faltan | 0,5 | Investigación previa por cada dato ausente. |
+
+Ejemplo de lo que esto cambia: **Viva 1A, con 89 sedes, saca 78,6 pese a tener el
+LTV más alto de la cartera conocida (5,11), mientras OINSAMED con 1 sede saca 85,7
+con un LTV de 3,48.** Misma lógica que usa un vendedor: la clínica concentrada es
+una victoria más barata que la red nacional.
 
 **Correcciones**
 
@@ -90,11 +141,19 @@ python src/build_tablero.py --dsn "$DSN"
 **No hay ni un peso escrito en el código.** Si al leer `src/score_icp.py` falta un
 número, está en el JSON.
 
-### Si al mover pesos todo queda igual
+### Recalibrar la escala
 
-El score es un percentil: lo que importa es el **orden**, no el nivel. Si subes
-todos los pesos a la vez, nada cambia — es correcto. Para mover el ranking hay que
-cambiar la **proporción** entre variables.
+`escala.centro` y `escala.dispersion` son constantes fijas, y por eso mover un peso
+**sube o baja los scores de verdad** en vez de recentrarlo todo. Al correr
+`score_icp.py` se imprimen los valores observados y avisa si se desfasaron más de
+media desviación:
+
+```
+calibración ok · ln(cociente) observado: media -3.614, desviación 0.823
+```
+
+Si tras un cambio grande de pesos aparece el aviso, se copian los valores
+observados a `escala.centro` y `escala.dispersion`.
 
 ## Ver por qué una cuenta sacó ese score
 

@@ -66,7 +66,12 @@ CREATE INDEX ix_score_prioridad ON reps.score_icp (prioridad);
 # recalcula nada que otra parte del pipeline ya haya calculado.
 CONSULTA = """
 WITH geo AS (
-  SELECT r.prestador_id, count(DISTINCT s.departamento) n_dep
+  -- Estructura organizativa, toda dato duro del REPS. Es lo que distingue a una
+  -- clínica de 300 personas en una sede de una red de 300 en cuarenta.
+  SELECT r.prestador_id,
+         count(DISTINCT s.id) n_sedes,
+         count(DISTINCT s.municipio) n_mun,
+         count(DISTINCT s.departamento) n_dep
   FROM reps.sede s JOIN reps.registro_habilitacion r ON r.id = s.registro_id
   GROUP BY 1
 ), contacto AS (
@@ -112,16 +117,18 @@ WITH geo AS (
 )
 SELECT p.id, p.clase_prestador, coalesce(p.es_ese, false),
        e.personal_estimado, e.fuerza_laboral_alto, e.crecimiento_pct,
-       coalesce(g.n_dep, 1),
+       coalesce(g.n_sedes, 1), coalesce(g.n_mun, 1), coalesce(g.n_dep, 1),
        coalesce(c.tel, false), coalesce(c.mail, false), coalesce(c.rep, false),
        coalesce(ri.quirurgico, false), coalesce(ri.compl_alta, false),
        coalesce(ri.oncologico, false), coalesce(ri.quemados, false),
        coalesce(ri.salud_mental, false), coalesce(ri.trasplante, false),
        coalesce(u.camas_uci, 0),
        coalesce(nv.n, 0),
-       f.patrimonio, f.ingresos, f.costos
+       f.patrimonio, f.ingresos, f.costos,
+       v.camas, v.salas_cirugia, v.consultorios, v.ambulancias, v.n_servicios
 FROM reps.prestador p
 JOIN reps.estimacion_personal e ON e.prestador_id = p.id
+JOIN reps.v_prestador_completo v ON v.id = p.id
 LEFT JOIN geo g      ON g.prestador_id = p.id
 LEFT JOIN contacto c ON c.prestador_id = p.id
 LEFT JOIN riesgo ri  ON ri.prestador_id = p.id
@@ -158,54 +165,73 @@ def norm_lineal(valor: float, piso: float, techo: float) -> float:
     return max(0.0, min(1.0, (valor - piso) / (techo - piso)))
 
 
-def tramo(planta: int | None, tramos: list[dict]) -> dict:
-    p = planta or 0
-    for t in tramos:
-        if t["hasta"] is None or p <= t["hasta"]:
-            return t
-    return tramos[-1]
+def log2p(x: float) -> float:
+    """log2(1+x). Crece rápido al principio y se aplana después.
+
+    Es la forma correcta de tratar estructura: pasar de 1 a 4 sedes cambia la
+    venta mucho más que pasar de 40 a 43. Y absorbe el ruido de los datos: que
+    la planta esté mal por un factor de 2 mueve el término en 1, no en 100.
+    """
+    return math.log2(1.0 + max(0.0, x))
 
 
 def calcular(fila: dict, cfg: dict) -> dict:
     """Devuelve score, ltv, cac y el desglose. Función pura: entra dato, sale número."""
     cac_cfg, ltv_cfg = cfg["cac"], cfg["ltv"]
     pc, pl = cac_cfg["pesos"], ltv_cfg["pesos"]
-    esc = cac_cfg["escalas"]
+    esc = cac_cfg["estructura"]
 
     # ── CAC: cuánto trabajo cuesta llegar a la firma
-    t = tramo(fila["planta"], esc["tramos_planta"])
-    interlocutores = t["interlocutores"]
-    ciclo = t["ciclo_meses"]
+    #
+    # La versión anterior derivaba todo de una tabla de cuatro tramos de planta.
+    # Medido sobre las 10.646 filas, eso dejaba al 84 % de las empresas con el
+    # MISMO CAC, porque el 91 % cae en el tramo más bajo. Ahora manda la
+    # estructura: sedes y municipios son dato duro del REPS y sí varían dentro
+    # de cada tamaño (de 1 a 48 sedes entre las de menos de 50 personas).
+    sedes = max(1, fila["n_sedes"] or 1)
+    municipios = max(1, fila["n_mun"] or 1)
+    deptos = max(1, fila["n_dep"] or 1)
+    planta = fila["planta"] or 0
+    tam = planta / esc["ancla_planta"]
+
+    interlocutores = 1.0 + esc["k_sedes"] * log2p(sedes) + esc["k_tamano"] * log2p(tam)
+    ciclo = esc["ciclo_base"] + esc["c_dispersion"] * log2p(municipios) + esc["c_tamano"] * log2p(tam)
     if fila["es_ese"]:
         interlocutores += esc["recargo_ese"]["interlocutores"]
-        ciclo += esc["recargo_ese"]["ciclo_meses"]
+        ciclo += esc["recargo_ese"]["ciclo"]
 
     faltantes = sum(1 for k in ("tel", "mail", "rep") if not fila[k])
-    red = 1 if fila["n_dep"] > esc["umbral_red_nacional_deptos"] else 0
 
     aportes_cac = {
         "interlocutores": pc["interlocutores"]["peso"] * interlocutores,
-        "ciclo_meses": pc["ciclo_meses"]["peso"] * ciclo,
+        "ciclo": pc["ciclo"]["peso"] * ciclo,
+        "dispersion_geografica": pc["dispersion_geografica"]["peso"] * log2p(deptos),
         "perfilamiento_faltante": pc["perfilamiento_faltante"]["peso"] * faltantes,
-        "red_nacional": pc["red_nacional"]["peso"] * red,
     }
     cac = cac_cfg["esfuerzo_base"] + sum(aportes_cac.values())
 
     # ── LTV: valor de la cuenta completa a 24 meses
-    planta = fila["planta"] or 0
     # Los tercerizados son la diferencia entre la fuerza laboral y la nómina
     # propia: ahí está el volumen de contratistas del ancla de RC.
     contratistas = max(0, (fila["fl_alto"] or 0) - planta)
+    # Índice de capacidad: dato duro, ponderado porque una sala de cirugía
+    # expone mucho más que un consultorio.
+    comp = pl["capacidad_instalada"]["componentes"]
+    capacidad = sum((fila[k] or 0) * peso for k, peso in comp.items())
     crec = fila["crecimiento"]
     norm_crec = (ltv_cfg["neutro_sin_crecimiento"] if crec is None
                  else norm_lineal(float(crec), pl["crecimiento"]["piso_pct"],
                                   pl["crecimiento"]["techo_pct"]))
 
+    def aporte(clave, valor):
+        c = pl[clave]
+        return c["peso"] * norm_potencia(valor, c["referencia"], c["exponente"])
+
     aportes_ltv = {
-        "tamano_planta": pl["tamano_planta"]["peso"] * norm_potencia(
-            planta, pl["tamano_planta"]["referencia"], pl["tamano_planta"]["exponente"]),
-        "contratistas": pl["contratistas"]["peso"] * norm_potencia(
-            contratistas, pl["contratistas"]["referencia"], pl["contratistas"]["exponente"]),
+        "tamano_planta": aporte("tamano_planta", planta),
+        "contratistas": aporte("contratistas", contratistas),
+        "capacidad_instalada": aporte("capacidad_instalada", capacidad),
+        "servicios_habilitados": aporte("servicios_habilitados", fila["n_servicios"] or 0),
         "crecimiento": pl["crecimiento"]["peso"] * norm_crec,
     }
     base_ltv = sum(aportes_ltv.values())
@@ -245,12 +271,16 @@ def calcular(fila: dict, cfg: dict) -> dict:
         "desglose": {
             "cac": {**{k: round(v, 3) for k, v in aportes_cac.items()},
                     "base": cac_cfg["esfuerzo_base"],
-                    "interlocutores_estimados": interlocutores,
-                    "ciclo_meses_estimado": ciclo,
+                    "interlocutores_estimados": round(interlocutores, 2),
+                    "ciclo_meses_estimado": round(ciclo, 2),
                     "datos_de_contacto_faltantes": faltantes,
-                    "decide_corporativo_fuera_de_sede": bool(red)},
+                    "estructura": {"sedes": sedes, "municipios": municipios,
+                                   "departamentos": deptos,
+                                   "personas_por_sede": round(planta / sedes, 1)}},
             "ltv": {**{k: round(v, 3) for k, v in aportes_ltv.items()},
-                    "base": round(base_ltv, 3)},
+                    "base": round(base_ltv, 3),
+                    "indice_capacidad": capacidad,
+                    "servicios": fila["n_servicios"] or 0},
             "multiplicadores": {
                 "reclasificacion_riesgo": m_reclas,
                 "senales_alto_riesgo": senales,
@@ -274,7 +304,32 @@ def escalar(resultados: list[dict], cfg: dict) -> None:
     aparte para quien quiera la distancia absoluta.
     """
     esc, u = cfg["escala"], cfg["umbrales"]
-    if esc.get("modo") == "percentil":
+    modo = esc.get("modo", "lineal")
+
+    if modo == "z_log":
+        # El cociente es log-normal, así que se estandariza su logaritmo. A
+        # diferencia del percentil, esto conserva CUÁNTO mejor es una cuenta que
+        # otra, y no se deforma porque el universo esté lleno de prestadores
+        # diminutos que nunca se van a trabajar.
+        import statistics as _st
+        logs = [math.log(max(r["ratio"], 1e-9)) for r in resultados]
+        obs_media, obs_desv = _st.mean(logs), (_st.pstdev(logs) or 1.0)
+        centro = esc["centro"]
+        disp = esc["dispersion"] or 1.0
+        for r, lr in zip(resultados, logs):
+            z = (lr - centro) / disp
+            r["score"] = round(max(0.0, min(100.0,
+                esc["centro_score"] + esc["puntos_por_sigma"] * z)), 2)
+        desfase = abs(obs_media - centro) / disp
+        if desfase > 0.5:
+            print(f"  ⚠ calibración: ln(cociente) observado tiene media {obs_media:.3f} y "
+                  f"desviación {obs_desv:.3f}; el archivo dice {centro} y {disp}.")
+            print(f"    Está desfasado {desfase:.2f} sigmas. Considera actualizar "
+                  f"`escala.centro` y `escala.dispersion` en config/pesos_icp.json.")
+        else:
+            print(f"  calibración ok · ln(cociente) observado: media {obs_media:.3f}, "
+                  f"desviación {obs_desv:.3f}")
+    elif modo == "percentil":
         n = len(resultados)
         # El cociente se redondea antes de ordenar y los empates reciben TODOS el
         # mismo percentil (el promedio del bloque). Sin esto, dos cuentas con
@@ -317,10 +372,12 @@ def main() -> int:
 
     with cx.cursor() as cur:
         cur.execute(CONSULTA)
-        columnas = ["id", "clase", "es_ese", "planta", "fl_alto", "crecimiento", "n_dep",
+        columnas = ["id", "clase", "es_ese", "planta", "fl_alto", "crecimiento",
+                    "n_sedes", "n_mun", "n_dep",
                     "tel", "mail", "rep", "quirurgico", "compl_alta", "oncologico",
                     "quemados", "salud_mental", "trasplante", "camas_uci", "serv_nuevos",
-                    "patrimonio", "ingresos", "costos"]
+                    "patrimonio", "ingresos", "costos",
+                    "camas", "salas_cirugia", "consultorios", "ambulancias", "n_servicios"]
         filas = [dict(zip(columnas, r)) for r in cur]
     print(f"· prestadores con estimación de planta: {len(filas):,}")
 

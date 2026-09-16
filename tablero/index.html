@@ -652,13 +652,7 @@
   var SCORE = [], PRIOR = [];
   ROWS.forEach(function(r, i){ r._i = i; });
 
-  function tramoPlanta(planta, tramos){
-    var p = planta || 0;
-    for(var i = 0; i < tramos.length; i++){
-      if(tramos[i].hasta === null || p <= tramos[i].hasta) return tramos[i];
-    }
-    return tramos[tramos.length - 1];
-  }
+  function log2p(x){ return Math.log2(1 + Math.max(0, x)); }
   function normPot(v, ref, exp){
     if(!v || v <= 0) return 0;
     return Math.min(1, Math.pow(v / ref, exp));
@@ -669,31 +663,47 @@
   }
 
   function calcRatio(r, cfg){
-    var pc = cfg.cac.pesos, esc = cfg.cac.escalas;
+    var pc = cfg.cac.pesos, esc = cfg.cac.estructura;
     var pl = cfg.ltv.pesos, mult = cfg.ltv.multiplicadores;
     var esEse = r[C.ese] === 1;
 
-    var t = tramoPlanta(r[C.planta], esc.tramos_planta);
-    var inter = t.interlocutores + (esEse ? esc.recargo_ese.interlocutores : 0);
-    var ciclo = t.ciclo_meses + (esEse ? esc.recargo_ese.ciclo_meses : 0);
+    // CAC sobre ESTRUCTURA, no sobre tramos de planta. La versión anterior
+    // dejaba al 84 % de las empresas con el mismo CAC porque el 91 % cae en el
+    // tramo más bajo; sedes y municipios sí varían dentro de cada tamaño.
+    var sedes = Math.max(1, r[C.sedes] || 1);
+    var municipios = Math.max(1, r[C.n_mun] || 1);
+    var deptos = Math.max(1, r[C.n_dep] || 1);
+    var planta = r[C.planta] || 0;
+    var tam = planta / esc.ancla_planta;
+
+    var inter = 1 + esc.k_sedes * log2p(sedes) + esc.k_tamano * log2p(tam);
+    var ciclo = esc.ciclo_base + esc.c_dispersion * log2p(municipios) + esc.c_tamano * log2p(tam);
+    if(esEse){ inter += esc.recargo_ese.interlocutores; ciclo += esc.recargo_ese.ciclo; }
+
     var faltan = (r[C.telefono] ? 0 : 1) + (r[C.email] ? 0 : 1) + (r[C.rep_legal] ? 0 : 1);
-    var red = (r[C.n_dep] || 1) > esc.umbral_red_nacional_deptos ? 1 : 0;
 
     var cac = cfg.cac.esfuerzo_base
       + pc.interlocutores.peso * inter
-      + pc.ciclo_meses.peso * ciclo
-      + pc.perfilamiento_faltante.peso * faltan
-      + pc.red_nacional.peso * red;
+      + pc.ciclo.peso * ciclo
+      + pc.dispersion_geografica.peso * log2p(deptos)
+      + pc.perfilamiento_faltante.peso * faltan;
 
-    var planta = r[C.planta] || 0;
     var contratistas = Math.max(0, (r[C.fl_alto] || 0) - planta);
+    var comp = pl.capacidad_instalada.componentes;
+    var capacidad = (r[C.camas] || 0) * comp.camas
+                  + (r[C.salas_cirugia] || 0) * comp.salas_cirugia
+                  + (r[C.consultorios] || 0) * comp.consultorios
+                  + (r[C.ambulancias] || 0) * comp.ambulancias;
+
     var crec = r[C.crecimiento];
-    var nCrec = (crec === null || crec === undefined)
-      ? cfg.ltv.neutro_sin_crecimiento
+    var nCrec = (crec == null) ? cfg.ltv.neutro_sin_crecimiento
       : normLin(crec, pl.crecimiento.piso_pct, pl.crecimiento.techo_pct);
 
-    var base = pl.tamano_planta.peso * normPot(planta, pl.tamano_planta.referencia, pl.tamano_planta.exponente)
-             + pl.contratistas.peso * normPot(contratistas, pl.contratistas.referencia, pl.contratistas.exponente)
+    function aporte(c, v){ return c.peso * normPot(v, c.referencia, c.exponente); }
+    var base = aporte(pl.tamano_planta, planta)
+             + aporte(pl.contratistas, contratistas)
+             + aporte(pl.capacidad_instalada, capacidad)
+             + aporte(pl.servicios_habilitados, r[C.servicios] || 0)
              + pl.crecimiento.peso * nCrec;
 
     var tipo = esEse ? "ese"
@@ -712,23 +722,31 @@
   }
 
   function recalcularScores(){
-    var n = ROWS.length;
-    var ratios = ROWS.map(function(r){ return Math.round(calcRatio(r, PESOS) * 1e6) / 1e6; });
-    var orden = ratios.map(function(_, i){ return i; })
-                      .sort(function(a, b){ return ratios[a] - ratios[b]; });
-    SCORE = new Array(n);
-    // Mismo criterio que src/score_icp.py: los empates comparten percentil.
-    for(var i = 0; i < n; ){
-      var j = i;
-      while(j + 1 < n && ratios[orden[j + 1]] === ratios[orden[i]]) j++;
-      var valor = n > 1 ? 100 * ((i + j) / 2) / (n - 1) : 100;
-      for(var k = i; k <= j; k++) SCORE[orden[k]] = valor;
-      i = j + 1;
+    var n = ROWS.length, e = PESOS.escala;
+    SCORE = new Array(n); PRIOR = new Array(n);
+    if(e.modo === "z_log"){
+      // ln(cociente) es casi normal, así que se estandariza. A diferencia del
+      // percentil, conserva CUÁNTO mejor es una cuenta que otra y no se deforma
+      // porque el universo esté lleno de prestadores diminutos.
+      for(var i = 0; i < n; i++){
+        var z = (Math.log(Math.max(calcRatio(ROWS[i], PESOS), 1e-9)) - e.centro) / (e.dispersion || 1);
+        SCORE[i] = Math.max(0, Math.min(100, e.centro_score + e.puntos_por_sigma * z));
+      }
+    } else {
+      var ratios = ROWS.map(function(r){ return Math.round(calcRatio(r, PESOS) * 1e6) / 1e6; });
+      var orden = ratios.map(function(_, i){ return i; })
+                        .sort(function(a, b){ return ratios[a] - ratios[b]; });
+      for(var k = 0; k < n; ){
+        var j = k;
+        while(j + 1 < n && ratios[orden[j + 1]] === ratios[orden[k]]) j++;
+        var valor = n > 1 ? 100 * ((k + j) / 2) / (n - 1) : 100;
+        for(var m = k; m <= j; m++) SCORE[orden[m]] = valor;
+        k = j + 1;
+      }
     }
-    PRIOR = new Array(n);
     var u = PESOS.umbrales;
-    for(var i = 0; i < n; i++){
-      PRIOR[i] = SCORE[i] >= u.alta ? "alta" : SCORE[i] >= u.media ? "media" : "baja";
+    for(var q = 0; q < n; q++){
+      PRIOR[q] = SCORE[q] >= u.alta ? "alta" : SCORE[q] >= u.media ? "media" : "baja";
     }
   }
 
@@ -759,18 +777,27 @@
   var CONTROLES = [
     {g: "CAC · fricción"},
     {ruta: "cac.pesos.interlocutores.peso", t: "Interlocutores", max: 3,
-     d: "Cuánta gente hay que convencer antes de la firma."},
-    {ruta: "cac.pesos.ciclo_meses.peso", t: "Duración del ciclo", max: 3,
-     d: "Meses estimados hasta cerrar."},
+     d: "Se estiman de la estructura: sedes y tamaño, en log2."},
+    {ruta: "cac.pesos.ciclo.peso", t: "Duración del ciclo", max: 3,
+     d: "Crece con los municipios en los que opera."},
+    {ruta: "cac.pesos.dispersion_geografica.peso", t: "Dispersión geográfica", max: 3,
+     d: "Departamentos: desplazamiento y distancia a quien decide."},
     {ruta: "cac.pesos.perfilamiento_faltante.peso", t: "Datos de contacto que faltan", max: 3,
      d: "Investigación previa por cada dato ausente."},
-    {ruta: "cac.pesos.red_nacional.peso", t: "Decide un corporativo lejos", max: 3,
-     d: "Penaliza que la decisión no esté en la sede local."},
+    {g: "CAC · cómo pesa la estructura"},
+    {ruta: "cac.estructura.k_sedes", t: "Sedes → interlocutores", max: 2,
+     d: "Cuánto suma cada duplicación de sedes al número de personas a convencer."},
+    {ruta: "cac.estructura.c_dispersion", t: "Municipios → ciclo", max: 2,
+     d: "Cuánto alarga el ciclo operar en más ciudades."},
     {g: "LTV · valor a 24 meses"},
-    {ruta: "ltv.pesos.tamano_planta.peso", t: "Planta en nómina", max: 3,
-     d: "Base de la prima de ARL, el ramo de entrada."},
     {ruta: "ltv.pesos.contratistas.peso", t: "Contratistas tercerizados", max: 3,
      d: "Volumen para el ancla de RC de contratistas."},
+    {ruta: "ltv.pesos.tamano_planta.peso", t: "Planta en nómina", max: 3,
+     d: "Base de la prima de ARL. Dato estimado: por eso no va solo."},
+    {ruta: "ltv.pesos.capacidad_instalada.peso", t: "Capacidad instalada", max: 3,
+     d: "Dato duro: camas, salas, consultorios y ambulancias ponderados."},
+    {ruta: "ltv.pesos.servicios_habilitados.peso", t: "Servicios habilitados", max: 3,
+     d: "Dato duro: superficie de cross-sell."},
     {ruta: "ltv.pesos.crecimiento.peso", t: "Crecimiento 19→21", max: 3,
      d: "Recorrido de cross-sell hacia adelante."},
     {g: "Multiplicadores"},
@@ -782,11 +809,11 @@
      d: "En 0 desaparecen del ranking de frío; se ganan por SECOP."},
     {ruta: "ltv.piso_operativo.factor", t: "Piso bajo el tamaño mínimo", min: 0.05, max: 1,
      d: "Cuánto se hunde una cuenta pequeña."},
-    {g: "Cortes de prioridad (percentil)"},
-    {ruta: "umbrales.alta", t: "Alta desde", min: 50, max: 99, paso: 1, ent: true,
-     d: "Percentil desde el cual una cuenta es prioridad alta."},
-    {ruta: "umbrales.media", t: "Media desde", min: 20, max: 95, paso: 1, ent: true,
-     d: "Percentil desde el cual es prioridad media."}
+    {g: "Cortes de prioridad"},
+    {ruta: "umbrales.alta", t: "Alta desde", min: 50, max: 90, paso: 1, ent: true,
+     d: "50 es el promedio del universo; cada 10 puntos es una desviación."},
+    {ruta: "umbrales.media", t: "Media desde", min: 30, max: 80, paso: 1, ent: true,
+     d: "Por debajo de este corte, prioridad baja."}
   ];
   function leer(ruta){ return ruta.split(".").reduce(function(o,k){ return o[k]; }, PESOS); }
   function escribir(ruta, v){

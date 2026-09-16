@@ -4,138 +4,186 @@
     "si algo le importa más o menos al score, se cambia aquí y se vuelve a correr",
     "  python src/score_icp.py --dsn \"$DSN\" && python src/build_tablero.py --dsn \"$DSN\"",
     "",
-    "LOS PESOS DE ABAJO SON UN PUNTO DE PARTIDA, NO UN RESULTADO.",
-    "No hay historial de cierres en HubSpot con el cual calibrarlos. Salieron de la",
-    "lógica del método comercial, no de datos. Se corrigen con src/recalibrar.py a",
-    "medida que se vayan registrando cierres reales en datos/cierres.csv.",
+    "LOS PESOS SON UN PUNTO DE PARTIDA, NO UN RESULTADO. No hay historial de cierres",
+    "con el cual calibrarlos. Se corrigen con src/recalibrar.py a medida que se",
+    "registren cierres reales en datos/cierres.csv.",
     "",
     "El score es un cociente LTV:CAC, donde el CAC es esfuerzo y tiempo, no plata.",
-    "  CAC  = esfuerzo_base + Σ(peso × variable de fricción)",
-    "  LTV  = Σ(peso × variable de valor) × Π(multiplicadores)",
-    "  score = 100 × (LTV / CAC) / referencia_ratio,  recortado a 0-100"
+    "  CAC  = esfuerzo_base + suma(peso x variable de friccion)",
+    "  LTV  = suma(peso x variable de valor) x producto(multiplicadores)",
+    "  score = ln(cociente) estandarizado y llevado a 0-100 (ver `escala`)"
   ],
-  "version": "2026-09-16-inicial",
+  "version": "2026-09-16-estructura",
+  "_cambio_v2": [
+    "La primera version medía el tamaño con una tabla de cuatro tramos de planta.",
+    "Resultado medido sobre las 10.646 filas: el CAC tomaba SOLO 13 VALORES y el",
+    "84,4 % de las empresas compartía exactamente el mismo (2,60). El cociente",
+    "correlacionaba 0,94 con el LTV y 0,26 con el CAC: el CAC no existía.",
+    "",
+    "La causa: dentro del tramo '<50 personas' —9.737 empresas, el 91 % del",
+    "universo— las sedes van de 1 a 48 y los municipios de 1 a 20. La planta sola",
+    "no describe la estructura de una organización.",
+    "",
+    "Esta version mide la ESTRUCTURA con datos duros del REPS (sedes, municipios,",
+    "departamentos, servicios, capacidad) y usa escalas continuas en log2. La",
+    "planta sigue entrando, pero como un termino mas y suavizada: es un dato",
+    "estimado y no debe cargar sola con el modelo."
+  ],
   "cac": {
-    "_que_mide": "Esfuerzo y tiempo hasta la firma. Más alto = cuesta más trabajo.",
+    "_que_mide": "Esfuerzo y tiempo hasta la firma. Mas alto = cuesta mas trabajo.",
     "esfuerzo_base": 1.0,
     "pesos": {
       "interlocutores": {
         "peso": 1.0,
-        "_nota": "Cuánta gente hay que convencer. Es la fricción que más alarga un ciclo."
+        "_nota": "Cuanta gente hay que convencer. Es la friccion que mas alarga un ciclo."
       },
-      "ciclo_meses": {
+      "ciclo": {
         "peso": 0.6,
-        "_nota": "Meses estimados de ciclo. Pesa menos que los interlocutores porque el tiempo se puede paralelizar entre cuentas; convencer gente, no."
+        "_nota": "Meses estimados de ciclo. Pesa menos que los interlocutores porque el tiempo se paraleliza entre cuentas; convencer gente, no."
+      },
+      "dispersion_geografica": {
+        "peso": 0.9,
+        "_nota": "Cuantos departamentos toca. Mide dos cosas a la vez: costo de desplazamiento y probabilidad de que la decision este en un corporativo lejos de la sede local."
       },
       "perfilamiento_faltante": {
         "peso": 0.5,
-        "_nota": "Cuántos de los tres datos de contacto faltan (teléfono, correo, representante legal). Cada uno que falta es trabajo previo de investigación."
-      },
-      "red_nacional": {
-        "peso": 1.2,
-        "_nota": "Penaliza que la decisión esté centralizada fuera de la sede local. Es la fricción más cara de todas: no se resuelve con más visitas."
+        "_nota": "Cuantos de los tres datos de contacto faltan (telefono, correo, representante legal)."
       }
     },
-    "escalas": {
-      "_nota": "Proxy de tamaño -> número de interlocutores y meses de ciclo. Los cortes de planta salen del cap. 3.4 del método, no de la base.",
-      "tramos_planta": [
-        {
-          "hasta": 50,
-          "interlocutores": 1,
-          "ciclo_meses": 1
-        },
-        {
-          "hasta": 300,
-          "interlocutores": 2,
-          "ciclo_meses": 2
-        },
-        {
-          "hasta": 1000,
-          "interlocutores": 3,
-          "ciclo_meses": 4
-        },
-        {
-          "hasta": null,
-          "interlocutores": 4,
-          "ciclo_meses": 6
-        }
+    "estructura": {
+      "_nota": [
+        "Interlocutores y ciclo se ESTIMAN a partir de la estructura, en escala log2.",
+        "log2 por dos razones: crece rapido al principio y se aplana despues (pasar de",
+        "1 a 4 sedes cambia la venta mucho mas que pasar de 40 a 43), y es robusto al",
+        "ruido de los datos: que la planta este mal por un factor de 2 mueve el termino",
+        "en 1 unidad, no en 100.",
+        "",
+        "  interlocutores = 1 + k_sedes*log2(1+sedes) + k_tamano*log2(1+planta/ancla)",
+        "  ciclo          = ciclo_base + c_dispersion*log2(1+municipios)",
+        "                              + c_tamano*log2(1+planta/ancla)"
       ],
+      "ancla_planta": 50,
+      "k_sedes": 0.9,
+      "k_tamano": 0.7,
+      "ciclo_base": 1.0,
+      "c_dispersion": 0.8,
+      "c_tamano": 0.6,
       "recargo_ese": {
-        "interlocutores": 1,
-        "ciclo_meses": 2,
+        "interlocutores": 1.0,
+        "ciclo": 2.0,
         "_nota": "Una ESE suma junta directiva y proceso reglado."
-      },
-      "umbral_red_nacional_deptos": 3
+      }
     }
   },
   "ltv": {
     "_que_mide": "Valor de la cuenta COMPLETA a 24 meses, no solo la ARL de entrada.",
+    "_nota_robustez": [
+      "El valor se reparte entre cinco variables a proposito, y dos de ellas son",
+      "dato duro del REPS (capacidad instalada y servicios habilitados). Asi el",
+      "score no depende de que la planta estimada sea exacta: si esa cifra falla en",
+      "una cuenta, las otras sostienen el orden."
+    ],
     "pesos": {
       "tamano_planta": {
-        "peso": 1.0,
+        "peso": 0.9,
         "referencia": 1000,
-        "_nota": "Planta en nómina, base de la prima de ARL. Se normaliza como (valor/referencia)^exponente. Con logaritmo una IPS de 38 personas quedaba en 53 % del valor de una de 1.000, que es falso: la prima de ARL escala casi con la nómina. Con exponente 0,70 queda en 10 %, que es defendible. Bajar el exponente aplana; subirlo hacia 1 lo vuelve lineal.",
-        "exponente": 0.7
+        "exponente": 0.7,
+        "_nota": "Planta en nomina, base de la prima de ARL. DATO ESTIMADO: por eso pesa menos que en la version anterior y no va solo."
       },
       "contratistas": {
-        "peso": 1.3,
+        "peso": 1.2,
         "referencia": 3000,
-        "_nota": "Brecha entre fuerza laboral con tercerizados y planta propia. Es el proxy del volumen de médicos contratistas, que es el ancla real de retención: la gestión gratuita de RC de contratistas da acceso a la lista completa. Pesa MÁS que la planta a propósito.",
-        "exponente": 0.7
+        "exponente": 0.7,
+        "_nota": "Brecha entre fuerza laboral y nomina propia: volumen de medicos contratistas, que es el ancla real de retencion. Sigue siendo el peso mas alto."
+      },
+      "capacidad_instalada": {
+        "peso": 0.8,
+        "referencia": 250,
+        "exponente": 0.7,
+        "componentes": {
+          "camas": 3,
+          "salas_cirugia": 5,
+          "consultorios": 1,
+          "ambulancias": 2
+        },
+        "_nota": "DATO DURO. Indice ponderado: una sala de cirugia expone mucho mas que un consultorio. Es el proxy de prima de RC medica, todo riesgo y autos."
+      },
+      "servicios_habilitados": {
+        "peso": 0.6,
+        "referencia": 80,
+        "exponente": 0.7,
+        "_nota": "DATO DURO. Superficie de cross-sell: cada servicio habilitado es exposicion que alguien tiene que amparar."
       },
       "crecimiento": {
-        "peso": 0.7,
+        "peso": 0.6,
         "piso_pct": -25,
         "techo_pct": 100,
-        "_nota": "Crecimiento 2019-2021. Una IPS que crece tiene más recorrido de cross-sell. Sin serie comparable se usa el valor neutro de abajo."
+        "_nota": "Crecimiento 2019-2021. Sin serie comparable se usa el neutro de abajo."
       }
     },
     "neutro_sin_crecimiento": 0.4,
+    "piso_operativo": {
+      "umbral_planta": 100,
+      "factor": 0.35,
+      "_nota": "El cap. 3.2 del metodo descarta prestadores de menos de 100 empleados sin activos asegurables. Aqui no se descartan, se hunden. Sin este piso el score premiaba IPS de 30 personas por ser faciles de cerrar, que es el error clasico de un cociente LTV:CAC sin suelo en el LTV."
+    },
     "multiplicadores": {
       "reclasificacion_riesgo": {
         "valor": 1.35,
-        "_nota": "La IPS habilitó servicios de alto riesgo (cirugía, UCI, oncológico, quemados, salud mental, trasplantes) y con alta probabilidad sigue cotizando ARL en la clase III inicial. Es palanca de valor sobre la misma cuenta, no un segmento aparte."
+        "_nota": "Habilito alto riesgo (cirugia, UCI, oncologico, quemados, salud mental, trasplantes) y con alta probabilidad sigue cotizando ARL en la clase III inicial."
       },
       "novedad_reps": {
         "valor": 1.2,
-        "_nota": "Habilitó un servicio nuevo en los últimos 12 meses. Disparador público y fechado: la póliza de RC casi nunca se actualizó después."
+        "_nota": "Habilito un servicio nuevo en los ultimos 12 meses. Disparador publico y fechado."
       },
       "tipo_prestador": {
         "ips": 1.0,
         "ese": 0.15,
         "objeto_social_distinto": 0.6,
         "transporte_pacientes": 0.5,
-        "_nota": "La ESE no se elimina de la base: se hunde en el score de frío porque se gana por SECOP, no por outbound. Si algún día se trabaja el canal público, se sube este número y listo."
+        "_nota": "La ESE no se elimina: se hunde en el ranking de frio porque se gana por SECOP. Subir este numero la devuelve."
       }
-    },
-    "piso_operativo": {
-      "umbral_planta": 100,
-      "factor": 0.35,
-      "_nota": "El cap. 3.2 del método descarta prestadores de menos de 100 empleados sin activos asegurables: no pagan el costo de servirlos. Aquí no se descartan, se hunden. Sin este piso el score premiaba IPS de 30 personas por ser fáciles de cerrar, que es justo el error que un cociente LTV:CAC comete si el LTV no tiene suelo."
     }
   },
   "deterioro_financiero": {
-    "_nota": "Reordena hacia abajo, NO descarta. Un patrimonio negativo o pérdidas fuertes hacen la cuenta más lenta de cobrar y más riesgosa, pero sigue siendo cuenta.",
+    "_nota": "Reordena hacia abajo, NO descarta.",
     "factor_patrimonio_negativo": 0.75,
     "factor_perdida_operacional": 0.9
   },
   "escala": {
-    "modo": "percentil",
+    "modo": "z_log",
+    "centro": -3.614,
+    "dispersion": 0.823,
+    "puntos_por_sigma": 10,
+    "centro_score": 50,
     "referencia_ratio": 0.175,
     "_nota": [
       "Cómo se lleva el cociente LTV:CAC a una escala de 0 a 100.",
-      "modo 'percentil' (recomendado): el score ES el percentil del cociente dentro del",
-      "universo. Un score de 93 significa 'está en el 7 % mejor'. Se explica solo, no",
-      "tiene techo donde se empaten cuentas, y no hay que recalibrar nada al mover pesos.",
-      "modo 'lineal': score = 100 x cociente / referencia_ratio. Conserva la distancia",
-      "absoluta entre cuentas, pero con esta distribución (mediana 0,044 y máximo 0,72)",
-      "dejaba 361 cuentas empatadas en 100 y volvía inútil el orden del top.",
-      "En los dos modos, `ratio` queda guardado sin recortar y es la llave de orden real."
+      "",
+      "modo 'z_log' (el que está activo). ln(cociente) resultó casi simétrico sobre",
+      "las 10.646 filas: media -3,614, mediana -3,59, desviación 0,823. Es decir, el",
+      "cociente es log-normal. Entonces:",
+      "     score = centro_score + puntos_por_sigma * (ln(cociente) - centro) / dispersion",
+      "Una cuenta promedio saca 50; cada desviación estándar son 15 puntos. Conserva",
+      "la DISTANCIA real entre cuentas y da resolución en todo el rango.",
+      "",
+      "Por qué se abandonó 'percentil': el universo tiene 9.737 micro-prestadores que",
+      "nunca se van a trabajar. Contra esa base, cualquier IPS de más de 100 personas",
+      "caía automáticamente sobre el percentil 98, y dentro del grupo que sí importa",
+      "todas salían con 98,7-98,9 sin importar su estructura. El score ordenaba el",
+      "universo pero no distinguía dentro de la lista de trabajo, que es justo donde",
+      "se necesita.",
+      "",
+      "centro y dispersion son CONSTANTES DE CALIBRACIÓN. Al correr score_icp.py se",
+      "imprimen los valores observados: si se alejan mucho de los de aquí, conviene",
+      "actualizarlos. Dejarlos fijos es lo que permite que mover un peso suba o baje",
+      "el score de verdad, en vez de recentrarlo todo cada vez.",
+      "puntos_por_sigma=10 (no 15): con 15 el mejor cociente quedaba 3,9 sigmas arriba y 80 de las 249 cuentas del grupo de trabajo se pegaban al techo de 100. Con 10, el rango observado (-4,8 a +3,9 sigmas) cabe entero entre 2 y 89 sin recortar ni una."
     ]
   },
   "umbrales": {
-    "alta": 90,
-    "media": 65,
-    "_nota": "En modo percentil los umbrales SON percentiles: alta = el 10 % mejor, media = el 25 % siguiente, baja = el resto. Si el equipo no alcanza a trabajar la lista de alta, se sube el umbral; no hay que tocar ningún peso para eso."
+    "alta": 63,
+    "media": 54,
+    "_nota": "Con la escala z_log y 10 puntos por sigma: 63 es 1,3 desviaciones sobre el promedio (cerca del 10 % mejor) y 54 es 0,4 desviaciones (cerca del 35 %). Si el equipo no alcanza a trabajar la lista de alta, se sube el umbral; no hay que tocar ningún peso."
   }
 }
