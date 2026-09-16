@@ -1,160 +1,191 @@
 """
-Estimación del número de trabajadores por prestador.
+Estimación de trabajadores por prestador y de su crecimiento 2019 → 2021.
 
 QUÉ ES Y QUÉ NO ES
 ------------------
-`prestador.numero_empleados` sigue siendo NULL: ninguna fuente pública
-colombiana publica la planta de una IPS. Esto NO lo cambia. Lo que hace este
-módulo es escribir una tabla APARTE, `estimacion_personal`, con un número
-DERIVADO, su método, su banda y sus insumos. Dato observado y dato estimado no
-se mezclan en la misma columna.
+`prestador.numero_empleados` sigue NULL: ninguna fuente pública colombiana
+publica la planta de una IPS. Esto no lo cambia. Lo derivado vive aparte, en
+`estimacion_personal` y `estimacion_personal_anual`, con su método y su banda.
 
-MÉTODO 1 · NÓMINA (el bueno)
-----------------------------
-    trabajadores ≈ gasto anual de nómina / costo anual por trabajador
+MÉTODO 1 · NÓMINA
+-----------------
+    trabajadores(año) ≈ gasto de nómina(año) / costo por trabajador(año)
 
-El gasto de nómina sí está en los estados financieros de Supersalud:
-  ESE       ......5101 Sueldos y salarios
-            ......5104 Aportes sobre la nómina
-            ......5108 Gastos de personal diversos
-  privadas  SUELDOS Y SALARIOS
-            APORTES SOBRE LA NOMINA
-            BENEFICIOS A LOS EMPLEADOS A CORTO PLAZO
+El costo por trabajador se calibra **año por año** contra SIHO, que publica la
+planta nacional de las ESE en su informe "Distribución Recurso Humano":
 
-El costo por trabajador NO se inventa: se calibra contra SIHO. El informe
-"Distribución Recurso Humano" de SIHO publica la planta nacional agregada de
-las ESE — 2021: 15.578 apoyo + 33.093 operativo = 48.671 personas. Dividiendo
-la nómina agregada de las 919 ESE de ese mismo año entre esa planta:
+    año   planta ESE    nómina ESE agregada     costo/trabajador
+    2019     46.783     (de los EEFF del año)   se calcula al correr
+    2020     48.864
+    2021     48.671
 
-    $1.047.399.744.361 / 48.671 = $21.520.000 por persona/año  (~$1,79 M/mes)
+Calibrar por año es lo que hace comparable el crecimiento: si se usara un solo
+costo para los tres años, la inflación salarial aparecería como contratación.
 
-Con salario mínimo de 2021 en $908.526, eso es ~1,97 SMMLV de costo total
-(salario + carga prestacional y parafiscal), que es exactamente lo que se
-espera de una planta pública. El ancla valida.
+CUENTAS DE NÓMINA — corrección importante
+-----------------------------------------
+Una primera versión sumaba solo 5101 + 5104 + 5108 y dejaba fuera 5102, 5103 y
+5107 (contribuciones imputadas y efectivas, y prestaciones sociales), que son
+una parte grande del costo de un trabajador. Con el conjunto completo el ancla
+2021 pasa de $21,5 M a **$30,9 M por persona/año** (~2,84 SMMLV de 2021 con
+carga prestacional), que es lo que se espera de una planta de salud.
 
-MÉTODO 2 · CAPACIDAD (para quien no reporta financieros)
---------------------------------------------------------
-Solo ~5.600 de 57.663 prestadores tienen estados financieros. Para el resto se
-ajusta por mínimos cuadrados no negativos una relación
+Los archivos usan tres convenciones distintas para las mismas cuentas:
+  ESE, todas las vigencias   '......5101 Sueldos y salarios'
+  privadas 2019 y 2020       '5101' (código pelado como cabecera)
+  privadas 2021              'SUELDOS Y SALARIOS' (nombre NIIF)
+Se resuelven por código cuando lo hay y por nombre cuando no, sin sumar dos veces.
 
-    trabajadores ≈ b1·camas + b2·salas + b3·sedes + …
+MÉTODO 2 · CAPACIDAD
+--------------------
+Para quien no reporta financieros: regresión no negativa, sin intercepto y
+ajustada solo sobre IPS, de la planta contra camas, camillas, consultorios,
+salas, sillas, ambulancias, sedes y servicios. Con intercepto le asignaba ~7
+trabajadores de base a cualquier consultorio. R² ≈ 0,42 en holdout: sirve de
+orden de magnitud, no de cifra.
 
-usando como variable dependiente las estimaciones del método 1. Los
-coeficientes salen de datos, no de ratios de manual.
+A los profesionales independientes no se les estima. Son personas naturales;
+la ausencia de fila significa "no estimable", no cero.
 
-Tres decisiones del ajuste, tomadas midiendo contra un holdout del 25 %:
+QUÉ MIDE — leer antes de usarlo
+-------------------------------
+Mide **planta formal en nómina**, no fuerza laboral total. Las ESE gastaron en
+2021 $11,4 billones en la cuenta 6310 "Servicios de salud" —servicios
+comprados— contra $1,5 billones de nómina propia: 7,5 a 1. En salud, buena
+parte del personal entra por prestación de servicios o por bolsas de empleo y
+no pasa por las cuentas de nómina del contratante.
 
-· **Sin intercepto.** Con intercepto el modelo le asigna ~7 trabajadores de
-  base a cualquier prestador, lo que es absurdo para un consultorio. Sin él,
-  el error mediano cae de 9,5 a 4,4 personas.
-· **Ajustado solo sobre IPS.** La muestra con financieros son clínicas; usarla
-  para extrapolar a profesionales independientes es extrapolación pura.
-· **No se estima a los profesionales independientes.** Son ~47.000 personas
-  naturales cuya "planta" son ellos mismos. No tienen fila en la tabla: la
-  ausencia de fila significa "no estimable", no "cero".
+Contra 47 IPS de la Costa con conteo conocido, la fuerza laboral real fue en
+mediana ×3 la planta en nómina (p25–p75 ×1,25–×5,24; extremos ×0,04 y ×47). Por
+eso `fuerza_laboral_bajo/alto` es banda y no cifra.
 
-El poder explicativo es moderado (R² ≈ 0,44 en holdout) y así se reporta. La
-capacidad instalada no determina la planta: el mix de servicios y cuánto se
-terceriza pesan igual o más. Por eso la banda de este método es ancha y se
-calcula de los residuos reales, no de un porcentaje inventado.
+Para ARL la distinción es el negocio: la afiliación sigue al empleador de
+registro, así que la planta en nómina es lo que esa IPS afilia por su cuenta y
+a los tercerizados los afilia la bolsa que los contrata.
 
-QUÉ MIDE EXACTAMENTE — leer antes de usarlo
--------------------------------------------
-Mide **planta formal en nómina**, no fuerza laboral total. En salud en Colombia
-una parte grande del personal entra por prestación de servicios o por bolsas de
-empleo, y ese gasto no pasa por las cuentas de nómina del contratante.
-
-Esa diferencia no es un defecto del método: **son dos cifras distintas que
-corresponden a dos empleadores distintos.** Para ARL la afiliación sigue al
-empleador de registro, así que la planta en nómina es justamente lo que esa IPS
-afilia por su cuenta; los tercerizados los afilia la bolsa que los contrata.
-
-Contrastando contra una base externa de 47 IPS de la Costa con conteo de
-trabajadores conocido, la fuerza laboral total resultó ser **×3,0 la planta en
-nómina (mediana), con p25–p75 entre ×1,25 y ×5,24** y casos extremos de ×0,04 a
-×47. La dispersión es tan grande que dar un multiplicador puntual sería
-precisión falsa; por eso se guarda como BANDA en `fuerza_laboral_bajo/alto` y
-se marca con confianza baja.
-
-Otras limitaciones:
-· Los datos financieros son de 2021 y la capacidad instalada es de 2026.
-· En IPS privadas con muchos especialistas el costo por trabajador real es
-  mayor que el ancla pública, así que el método 1 las sobreestima. La banda
-  mueve el costo por trabajador ±35 %.
-· Una IPS que creció mucho desde 2021 queda corta por definición.
+POR QUÉ NO SE PROYECTA A 2026
+-----------------------------
+Los financieros terminan en 2021. Extrapolar cinco años una tendencia medida
+entre 2019 y 2021 —pandemia de por medio y con la crisis de las EPS después—
+sería inventar. Se entrega la tendencia observada; proyectarla es decisión de
+quien la lea.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 
 import numpy as np
 import psycopg
 
-# Calibración contra SIHO · Distribución Recurso Humano, vigencia 2021.
-SIHO_PLANTA_ESE_2021 = 48_671
+# Planta nacional de ESE según SIHO · Distribución Recurso Humano (apoyo + operativo).
+SIHO_PLANTA = {2019: 46_783, 2020: 48_864, 2021: 48_671}
 SIHO_URL = ("https://prestadores.minsalud.gov.co/siho/informes/recursohumano.aspx"
             "?pageTitle=Distribución+Recurso+Humano")
 BANDA = 0.35  # ±35 % sobre el costo por trabajador
 
-# Factor de tercerización, medido contra 47 IPS de la Costa con conteo conocido:
-# fuerza laboral total / planta en nómina -> mediana 3,00 · p25 1,25 · p75 5,24.
-# Se usa como banda, nunca como punto: los extremos observados van de 0,04 a 47.
+# Factor de tercerización medido contra 47 IPS de la Costa con conteo conocido.
 TERCERIZACION_P25, TERCERIZACION_P75 = 1.25, 5.24
 
-CUENTAS_ESE = ("......5101 Sueldos y salarios",
-               "......5104 Aportes sobre la nómina",
-               "......5108 Gastos de personal diversos")
-CUENTAS_PRIV = ("SUELDOS Y SALARIOS",
-                "APORTES SOBRE LA NOMINA",
-                "BENEFICIOS A LOS EMPLEADOS A CORTO PLAZO")
+# Las seis cuentas que componen el costo de un trabajador.
+CODIGOS_NOMINA = {"5101", "5102", "5103", "5104", "5107", "5108"}
+NOMBRES_NOMINA = {
+    "SUELDOS Y SALARIOS", "CONTRIBUCIONES IMPUTADAS", "CONTRIBUCIONES EFECTIVAS",
+    "APORTES SOBRE LA NOMINA", "PRESTACIONES SOCIALES", "GASTOS DE PERSONAL DIVERSOS",
+}
+_CODIGO = re.compile(r"^\.*\s*(\d{4})\b")
+# El loader desambigua nombres de columna repetidos con " (índice)". Aquí se
+# quita el sufijo para volver a agregar por nombre base: las cuentas de personal
+# vienen dos veces —gastos de administración y costos de operación— y las dos
+# son nómina del año.
+_SUFIJO = re.compile(r"\s*\(\d+\)\s*$")
 
 RASGOS = ("camas", "camillas", "consultorios", "salas", "sillas",
           "ambulancias", "sedes", "servicios")
 
+VIGENCIA_ACTUAL = 2021  # la última que publica Supersalud
+
 DDL = """
+DROP TABLE IF EXISTS reps.estimacion_personal_anual;
 DROP TABLE IF EXISTS reps.estimacion_personal;
+
 CREATE TABLE reps.estimacion_personal (
     prestador_id        bigint PRIMARY KEY REFERENCES reps.prestador(id) ON DELETE CASCADE,
-    personal_estimado   integer NOT NULL,  -- planta formal en nómina
+    personal_estimado   integer NOT NULL,   -- planta formal en nómina, vigencia más reciente
     rango_bajo          integer NOT NULL,
     rango_alto          integer NOT NULL,
-    -- Fuerza laboral TOTAL incluyendo tercerizados. Banda, no punto.
-    fuerza_laboral_bajo integer NOT NULL,
+    fuerza_laboral_bajo integer NOT NULL,   -- banda incluyendo tercerizados
     fuerza_laboral_alto integer NOT NULL,
-    metodo              text    NOT NULL,  -- 'nomina' | 'capacidad'
-    confianza           text    NOT NULL,  -- 'media' | 'baja'
+    metodo              text    NOT NULL,   -- 'nomina' | 'capacidad'
+    confianza           text    NOT NULL,   -- 'media' | 'baja'
+    -- Crecimiento observado. NULL cuando no hay dos vigencias comparables.
+    personal_2019       integer,
+    personal_2020       integer,
+    personal_2021       integer,
+    crecimiento_pct     numeric(8,2),       -- 2019 -> 2021, en %
+    crecimiento_anual   numeric(8,2),       -- CAGR equivalente, en %
+    tendencia           text,               -- creciendo | estable | decreciendo | sin_serie
     insumos             jsonb   NOT NULL,
     nota                text    NOT NULL
 );
 COMMENT ON COLUMN reps.estimacion_personal.personal_estimado IS
-  'Planta formal EN NÓMINA. Es la que la propia IPS afilia a ARL.';
-COMMENT ON COLUMN reps.estimacion_personal.fuerza_laboral_alto IS
-  'Banda de fuerza laboral total incluyendo prestación de servicios y bolsas de '
-  'empleo. Factor medido contra 47 IPS de la Costa: mediana x3, p25-p75 x1,25-x5,24.';
-COMMENT ON TABLE reps.estimacion_personal IS
-  'Número DERIVADO, no observado. prestador.numero_empleados sigue NULL a propósito. '
-  'Método nomina: gasto de nómina 2021 / costo por trabajador calibrado contra SIHO. '
-  'Método capacidad: regresión no negativa ajustada sobre las estimaciones de nómina. '
-  'Mide planta formal en nómina, no fuerza laboral total (excluye prestación de servicios).';
+  'Planta formal EN NÓMINA. Es la que la propia IPS afilia a ARL; los tercerizados '
+  'los afilia la bolsa de empleo que los contrata.';
+COMMENT ON COLUMN reps.estimacion_personal.crecimiento_pct IS
+  'Variación 2019->2021 de la planta estimada, con costo por trabajador calibrado '
+  'año por año contra SIHO para que no la contamine la inflación salarial.';
+
+CREATE TABLE reps.estimacion_personal_anual (
+    prestador_id      bigint  NOT NULL REFERENCES reps.prestador(id) ON DELETE CASCADE,
+    vigencia          smallint NOT NULL,
+    nomina_cop        numeric(20,2) NOT NULL,
+    costo_trabajador  numeric(20,2) NOT NULL,
+    personal          integer NOT NULL,
+    PRIMARY KEY (prestador_id, vigencia)
+);
+COMMENT ON TABLE reps.estimacion_personal_anual IS
+  'Serie por vigencia. El costo por trabajador es el del año, calibrado contra SIHO.';
+
+CREATE INDEX ix_est_tendencia ON reps.estimacion_personal (tendencia);
+CREATE INDEX ix_est_crec ON reps.estimacion_personal (crecimiento_pct);
 """
 
-NOTA_NOMINA = ("nómina 2021 de Supersalud dividida por el costo anual por trabajador "
-               "calibrado con la planta nacional de ESE que publica SIHO")
-NOTA_CAPACIDAD = ("regresión no negativa sobre camas, consultorios, salas, camillas, "
-                  "sillas, ambulancias y sedes, ajustada contra las estimaciones de nómina")
+NOTA_NOMINA = ("nómina de Supersalud dividida por el costo anual por trabajador, "
+               "calibrado año por año contra la planta nacional de ESE que publica SIHO")
+NOTA_CAPACIDAD = ("regresión no negativa sobre camas, camillas, consultorios, salas, sillas, "
+                  "ambulancias, sedes y servicios, ajustada contra las estimaciones de nómina")
 
 
-def suma(cuentas: dict, llaves) -> float:
-    return sum(v for k in llaves if isinstance((v := cuentas.get(k)), (int, float)))
+def nomina(cuentas: dict) -> float:
+    """Suma las cuentas de personal del AÑO, resolviendo las tres convenciones.
+
+    Solo cuentas de resultado. Quedan fuera a propósito las de balance
+    ('BENEFICIOS A LOS EMPLEADOS' y sus variantes), que son lo que la entidad
+    le DEBE a sus trabajadores, no lo que les pagó en el año. Confundirlas
+    infla la nómina y con ella el número de personas.
+    """
+    por_codigo = 0.0
+    por_nombre = 0.0
+    for k, v in cuentas.items():
+        if not isinstance(v, (int, float)):
+            continue
+        arriba = _SUFIJO.sub("", k.strip().upper())
+        m = _CODIGO.match(arriba)
+        if m:
+            if m.group(1) in CODIGOS_NOMINA:
+                por_codigo += v
+            continue
+        if arriba in NOMBRES_NOMINA:
+            por_nombre += v
+    # Cada archivo usa una sola convención; nunca se suman las dos.
+    return por_codigo if por_codigo else por_nombre
 
 
-def nnls(A: np.ndarray, y: np.ndarray, iteraciones: int = 40) -> np.ndarray:
-    """Mínimos cuadrados con coeficientes no negativos.
+def nnls(A: np.ndarray, y: np.ndarray, iteraciones: int = 50) -> np.ndarray:
+    """Mínimos cuadrados con coeficientes no negativos, por conjunto activo simple.
 
-    Un coeficiente negativo diría "más camas, menos gente", que no significa
-    nada. En vez de traer scipy, se resuelve por conjunto activo simple:
-    se ajusta, se apagan las columnas que salen negativas, y se repite.
+    Un coeficiente negativo diría "más camas, menos gente", que no significa nada.
     """
     activas = np.ones(A.shape[1], dtype=bool)
     coef = np.zeros(A.shape[1])
@@ -168,11 +199,20 @@ def nnls(A: np.ndarray, y: np.ndarray, iteraciones: int = 40) -> np.ndarray:
             return coef
         idx = np.where(activas)[0]
         activas[idx[sol < 0]] = False
-    coef[:] = 0
     if activas.any():
         sol, *_ = np.linalg.lstsq(A[:, activas], y, rcond=None)
         coef[activas] = np.clip(sol, 0, None)
     return coef
+
+
+def clasificar(pct: float | None) -> str:
+    if pct is None:
+        return "sin_serie"
+    if pct >= 10:
+        return "creciendo"
+    if pct <= -10:
+        return "decreciendo"
+    return "estable"
 
 
 def main() -> int:
@@ -183,37 +223,60 @@ def main() -> int:
     cx.execute(DDL)
     cx.commit()
 
-    # ---------------------------------------------------------- calibración
+    # ------------------------------------------------- calibración por año
     with cx.cursor() as cur:
-        cur.execute("SELECT cuentas FROM reps.prestador_financiero WHERE origen = 'ese'")
-        nomina_ese = sum(suma(r[0], CUENTAS_ESE) for r in cur)
-    costo = nomina_ese / SIHO_PLANTA_ESE_2021
-    print(f"· ancla SIHO 2021: {SIHO_PLANTA_ESE_2021:,} personas de planta en ESE")
-    print(f"  nómina ESE agregada  ${nomina_ese:,.0f}")
-    print(f"  costo por trabajador ${costo:,.0f}/año  (${costo/12:,.0f}/mes)")
+        cur.execute("SELECT vigencia, cuentas FROM reps.prestador_financiero WHERE origen = 'ese'")
+        ese = cur.fetchall()
+    nomina_ese: dict[int, float] = {}
+    for vig, cuentas in ese:
+        nomina_ese[vig] = nomina_ese.get(vig, 0.0) + nomina(cuentas)
 
-    # ------------------------------------------------------- método nómina
+    costo: dict[int, float] = {}
+    print("· calibración contra SIHO (planta nacional de ESE)")
+    for vig in sorted(SIHO_PLANTA):
+        if vig not in nomina_ese:
+            continue
+        costo[vig] = nomina_ese[vig] / SIHO_PLANTA[vig]
+        print(f"  {vig}: planta {SIHO_PLANTA[vig]:>7,} · nómina ${nomina_ese[vig]:>18,.0f}"
+              f" · costo ${costo[vig]:>12,.0f}/año (${costo[vig]/12:>10,.0f}/mes)")
+
+    # ------------------------------------------------------ serie por año
     with cx.cursor() as cur:
-        cur.execute("""SELECT prestador_id, origen, cuentas
+        cur.execute("""SELECT prestador_id, vigencia, cuentas
                        FROM reps.prestador_financiero
                        WHERE prestador_id IS NOT NULL""")
-        financieros = cur.fetchall()
+        registros = cur.fetchall()
 
-    por_nomina: dict[int, tuple[int, int, int, float]] = {}
-    for pid, origen, cuentas in financieros:
-        bruto = suma(cuentas, CUENTAS_ESE if origen == "ese" else CUENTAS_PRIV)
-        if bruto <= 0:
+    # (prestador, vigencia) -> mayor nómina reportada (un NIT puede salir en dos grupos)
+    serie: dict[tuple[int, int], float] = {}
+    for pid, vig, cuentas in registros:
+        if vig not in costo:
             continue
-        central = bruto / costo
-        if central < 0.5:
+        v = nomina(cuentas)
+        if v <= 0:
             continue
-        bajo = bruto / (costo * (1 + BANDA))
-        alto = bruto / (costo * (1 - BANDA))
-        # Si un prestador reporta por varios grupos, gana el de mayor nómina.
-        if pid not in por_nomina or bruto > por_nomina[pid][3]:
-            por_nomina[pid] = (max(1, round(central)), max(1, round(bajo)),
-                               max(1, round(alto)), bruto)
-    print(f"· método nómina: {len(por_nomina):,} prestadores")
+        llave = (pid, vig)
+        if v > serie.get(llave, 0):
+            serie[llave] = v
+
+    anual = []
+    personal: dict[int, dict[int, int]] = {}
+    for (pid, vig), bruto in serie.items():
+        n = bruto / costo[vig]
+        if n < 0.5:
+            continue
+        n = max(1, round(n))
+        personal.setdefault(pid, {})[vig] = n
+        anual.append((pid, vig, round(bruto, 2), round(costo[vig], 2), n))
+
+    with cx.cursor() as cur, cur.copy(
+        """COPY reps.estimacion_personal_anual
+           (prestador_id, vigencia, nomina_cop, costo_trabajador, personal) FROM STDIN"""
+    ) as cp:
+        for fila in anual:
+            cp.write_row(fila)
+    cx.commit()
+    print(f"· serie anual: {len(anual):,} filas sobre {len(personal):,} prestadores")
 
     # --------------------------------------------------- rasgos de capacidad
     with cx.cursor() as cur:
@@ -236,86 +299,94 @@ def main() -> int:
             LEFT JOIN reps.sede_capacidad c ON c.sede_id = s.id
             GROUP BY r.prestador_id, p.clase_prestador""")
         capacidad = {r[0]: (r[1], [float(x) for x in r[2:]]) for r in cur}
+
+    actual = {pid: v[VIGENCIA_ACTUAL] for pid, v in personal.items() if VIGENCIA_ACTUAL in v}
     es_ips = lambda pid: capacidad[pid][0].startswith("Instituciones")
-    independiente = lambda pid: capacidad[pid][0] == "Profesional Independiente"
-    print(f"· prestadores con sedes/capacidad: {len(capacidad):,}")
 
     # ------------------------------------------------------ ajuste del modelo
-    # Solo IPS: la muestra con financieros son clínicas, y extrapolar de ahí a
-    # un consultorio de un profesional independiente no tiene sustento.
-    pids = [p for p in por_nomina if p in capacidad and es_ips(p)]
+    pids = [p for p in actual if p in capacidad and es_ips(p)]
     X = np.array([capacidad[p][1] for p in pids])
-    y = np.array([por_nomina[p][0] for p in pids], dtype=float)
-    # Se recorta el 1 % superior: unas pocas redes enormes dominarían el ajuste.
+    y = np.array([actual[p] for p in pids], dtype=float)
     keep = y <= np.quantile(y, 0.99)
-    coef = nnls(X[keep], y[keep])           # sin intercepto, a propósito
+    coef = nnls(X[keep], y[keep])
     pred = np.clip(X[keep] @ coef, 1e-9, None)
     ss_res = float(((y[keep] - pred) ** 2).sum())
     ss_tot = float(((y[keep] - y[keep].mean()) ** 2).sum())
     r2 = 1 - ss_res / ss_tot if ss_tot else 0.0
-    # Banda empírica: cómo se reparte el valor real sobre el predicho.
     ratio = y[keep] / pred
     lo_f, hi_f = float(np.quantile(ratio, 0.10)), float(np.quantile(ratio, 0.90))
-    nombres = list(RASGOS)
-    print(f"· modelo de capacidad ajustado sobre {keep.sum():,} IPS · R² = {r2:.3f}")
-    print(f"  banda empírica p10–p90 del real/predicho: ×{lo_f:.2f} a ×{hi_f:.2f}")
-    for n, c in zip(nombres, coef):
-        print(f"    {n:14s} {c:8.3f} trabajadores por unidad")
+    print(f"· modelo de capacidad sobre {keep.sum():,} IPS · R² = {r2:.3f} · "
+          f"banda ×{lo_f:.2f}–×{hi_f:.2f}")
+    for n_, c in zip(RASGOS, coef):
+        print(f"    {n_:14s} {c:8.3f}")
 
     # ---------------------------------------------------------- escritura
     filas = []
-    for pid, (central, bajo, alto, bruto) in por_nomina.items():
-        filas.append((pid, central, bajo, alto,
-                      max(1, round(central * TERCERIZACION_P25)),
-                      max(1, round(central * TERCERIZACION_P75)),
-                      "nomina", "media",
-                      json.dumps({"nomina_2021_cop": round(bruto),
-                                  "costo_por_trabajador_cop": round(costo),
-                                  "banda": BANDA, "ancla_siho": SIHO_PLANTA_ESE_2021,
-                                  "fuente_ancla": SIHO_URL,
-                                  "factor_tercerizacion": [TERCERIZACION_P25, TERCERIZACION_P75]},
-                                 ensure_ascii=False),
-                      NOTA_NOMINA))
+    for pid, n in actual.items():
+        serie_pid = personal[pid]
+        p19, p20, p21 = serie_pid.get(2019), serie_pid.get(2020), serie_pid.get(2021)
+        pct = cagr = None
+        # Base mínima de 3 personas: sobre 1 o 2, un cambio de una persona es 50–100 %.
+        if p19 and p21 and p19 >= 3:
+            pct = (p21 / p19 - 1) * 100
+            cagr = ((p21 / p19) ** 0.5 - 1) * 100
+        filas.append((
+            pid, n, max(1, round(n / (1 + BANDA))), max(1, round(n / (1 - BANDA))),
+            max(1, round(n * TERCERIZACION_P25)), max(1, round(n * TERCERIZACION_P75)),
+            "nomina", "media", p19, p20, p21,
+            None if pct is None else round(pct, 2),
+            None if cagr is None else round(cagr, 2),
+            clasificar(pct),
+            json.dumps({"nomina_cop": round(serie.get((pid, VIGENCIA_ACTUAL), 0)),
+                        "costo_por_trabajador_cop": round(costo[VIGENCIA_ACTUAL]),
+                        "vigencia": VIGENCIA_ACTUAL, "banda": BANDA,
+                        "ancla_siho": SIHO_PLANTA, "fuente_ancla": SIHO_URL,
+                        "factor_tercerizacion": [TERCERIZACION_P25, TERCERIZACION_P75]},
+                       ensure_ascii=False),
+            NOTA_NOMINA))
+
     omitidos = 0
     for pid, (clase, rasgos) in capacidad.items():
-        if pid in por_nomina:
+        if pid in actual:
             continue
-        # Un profesional independiente es una persona natural: su "planta" es
-        # él mismo. Estimarlo con un modelo ajustado sobre clínicas sería
-        # fabricar un número. No tiene fila; ausencia = no estimable.
-        if independiente(pid):
+        if clase == "Profesional Independiente":
             omitidos += 1
             continue
         v = max(1.0, float(np.dot(np.array(rasgos), coef)))
-        filas.append((pid, round(v), max(1, round(v * lo_f)), max(1, round(v * hi_f)),
-                      max(1, round(v * TERCERIZACION_P25)),
-                      max(1, round(v * TERCERIZACION_P75)),
-                      "capacidad", "baja",
-                      json.dumps({**dict(zip(RASGOS, [int(x) for x in rasgos])),
-                                  "coeficientes": dict(zip(nombres, [round(float(c), 4) for c in coef])),
-                                  "r2_holdout_interno": round(r2, 3),
-                                  "banda_p10_p90": [round(lo_f, 3), round(hi_f, 3)]},
-                                 ensure_ascii=False),
-                      NOTA_CAPACIDAD))
-    print(f"· no estimados (profesionales independientes): {omitidos:,}")
+        filas.append((
+            pid, round(v), max(1, round(v * lo_f)), max(1, round(v * hi_f)),
+            max(1, round(v * TERCERIZACION_P25)), max(1, round(v * TERCERIZACION_P75)),
+            "capacidad", "baja", None, None, None, None, None, "sin_serie",
+            json.dumps({**dict(zip(RASGOS, [int(x) for x in rasgos])),
+                        "coeficientes": dict(zip(RASGOS, [round(float(c), 4) for c in coef])),
+                        "r2": round(r2, 3), "banda_p10_p90": [round(lo_f, 3), round(hi_f, 3)]},
+                       ensure_ascii=False),
+            NOTA_CAPACIDAD))
 
     with cx.cursor() as cur, cur.copy(
         """COPY reps.estimacion_personal
            (prestador_id, personal_estimado, rango_bajo, rango_alto,
-            fuerza_laboral_bajo, fuerza_laboral_alto, metodo,
-            confianza, insumos, nota) FROM STDIN"""
+            fuerza_laboral_bajo, fuerza_laboral_alto, metodo, confianza,
+            personal_2019, personal_2020, personal_2021,
+            crecimiento_pct, crecimiento_anual, tendencia, insumos, nota) FROM STDIN"""
     ) as cp:
         for f in filas:
             cp.write_row(f)
     cx.commit()
+    print(f"· no estimados (profesionales independientes): {omitidos:,}")
 
     with cx.cursor() as cur:
-        cur.execute("""SELECT metodo, count(*), sum(personal_estimado),
-                              round(avg(personal_estimado)::numeric,1)
+        cur.execute("""SELECT metodo, count(*), sum(personal_estimado)
                        FROM reps.estimacion_personal GROUP BY 1 ORDER BY 1""")
-        print("\n metodo      | prestadores | total estimado | promedio")
-        for m, n, s, a in cur:
-            print(f" {m:11s} | {n:11,} | {s:14,} | {a:>8}")
+        print("\n metodo      | prestadores | planta sumada")
+        for m, c, s in cur:
+            print(f" {m:11s} | {c:11,} | {s:13,}")
+        cur.execute("""SELECT tendencia, count(*), round(avg(crecimiento_pct),1)
+                       FROM reps.estimacion_personal
+                       WHERE tendencia <> 'sin_serie' GROUP BY 1 ORDER BY 2 DESC""")
+        print("\n tendencia    | prestadores | crecimiento medio %")
+        for t, c, a in cur:
+            print(f" {t:12s} | {c:11,} | {a!s:>18}")
     cx.close()
     return 0
 

@@ -149,6 +149,11 @@
   .chip.ese{border-color:var(--warn); color:var(--warn); background:var(--warn-soft)}
   .chip.nuevo{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
 
+  .delta{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; display:block}
+  .delta.crece{color:var(--accent)}
+  .delta.cae{color:var(--crit)}
+  .serie{display:block; font-family:var(--mono); font-size:10px; color:var(--faint)}
+
   .more{padding:11px; text-align:center; color:var(--muted); font-size:12px; border-top:1px solid var(--line)}
   .more button{font:inherit; font-size:12px; background:none; border:1px solid var(--line-strong); color:var(--ink); border-radius:4px; padding:5px 11px; cursor:pointer}
   .more button:hover{border-color:var(--accent); color:var(--accent)}
@@ -244,6 +249,15 @@
     </div>
 
     <div class="group">
+      <span class="label">Tendencia de planta 2019 → 2021</span>
+      <div class="checks" id="tendChecks"></div>
+      <div class="pair">
+        <input type="number" id="crecMin" placeholder="crec. % mín">
+        <input type="number" id="crecMax" placeholder="crec. % máx">
+      </div>
+    </div>
+
+    <div class="group">
       <span class="label">Señales</span>
       <div class="checks">
         <label class="check"><input type="checkbox" id="fNuevo"> Habilitó servicio nuevo (12 meses)</label>
@@ -272,6 +286,7 @@
             <th class="num sortable" data-k="salas_cirugia">Salas cx</th>
             <th class="num sortable" data-k="consultorios">Consult.</th>
             <th class="num sortable" data-k="planta">Planta est.</th>
+            <th class="num sortable" data-k="crecimiento">Crec. 19→21</th>
             <th>Fuerza laboral</th>
             <th class="num sortable" data-k="serv_nuevos_12m">Serv. 12m</th>
           </tr>
@@ -282,13 +297,14 @@
     </div>
 
     <details class="note">
-      <summary>Cómo leer «Planta est.» y «Fuerza laboral» — importante antes de usarlas</summary>
+      <summary>Cómo leer «Planta est.», «Crec. 19→21» y «Fuerza laboral» — leer antes de usarlas</summary>
       <div class="body">
-        <p><b>No son un dato de fuente.</b> Ninguna entidad pública colombiana publica la planta de una IPS. Estos dos números son derivados y el método está en la base, en <code>reps.estimacion_personal</code>.</p>
-        <p><b>Planta est.</b> es planta formal <b>en nómina</b>: el gasto de nómina de los estados financieros 2021 de Supersalud dividido entre <code>$21.520.000</code> por persona/año. Ese costo no es inventado: sale de dividir la nómina agregada de las 919 ESE entre las 48.671 personas de planta que SIHO publica para el mismo año. El chip <span class="chip nomina">nómina</span> marca las que salen así; el resto vienen de una regresión sobre camas, salas, sedes y ambulancias, con R² de 0,42 — úsalas como orden de magnitud, no como cifra.</p>
-        <p><b>Fuerza laboral</b> es la banda que incluye tercerizados. Contrastando 47 IPS de la Costa con conteo conocido, la fuerza real fue en mediana <b>×3 la planta en nómina</b>, con cuartiles en ×1,25 y ×5,24 y casos extremos de ×0,04 a ×47. Por eso es banda y no cifra.</p>
-        <p><b>Para ARL la distinción es el negocio, no un tecnicismo.</b> La afiliación sigue al empleador de registro: la planta en nómina es lo que esa IPS afilia por su cuenta; a los tercerizados los afilia la bolsa de empleo que los contrata. Son dos cuentas distintas y dos ventas distintas.</p>
-        <p>La capacidad instalada, las sedes y los servicios sí son dato duro del REPS, con corte del 16 de septiembre de 2026.</p>
+        <p><b>No son dato de fuente.</b> Ninguna entidad pública colombiana publica la planta de una IPS. Son derivados; el método vive en la base, en <code>reps.estimacion_personal</code>.</p>
+        <p><b>Planta est.</b> es planta formal <b>en nómina</b>: el gasto de nómina de los estados financieros de Supersalud dividido por el costo anual de un trabajador. Ese costo no se inventa: SIHO publica la planta nacional de las ESE y los mismos estados financieros dan su nómina agregada. Para 2021 el cociente es <code>$30,9 M por persona/año</code>, unos 2,84 salarios mínimos de ese año con carga prestacional. El chip <span class="chip nomina">nómina</span> marca a quienes salen así; el resto vienen de una regresión sobre camas, salas, sedes y ambulancias con R² de 0,36 — orden de magnitud, no cifra.</p>
+        <p><b>Crec. 19→21</b> compara la planta estimada de 2019 con la de 2021. El costo por trabajador se calibra <b>año por año</b> (2019 $32,6 M · 2020 $29,5 M · 2021 $30,9 M), así que el número es de personas y no de inflación salarial. Solo hay cifra cuando existen las dos vigencias y la base de 2019 llega a 3 personas; por debajo de eso una persona más mueve el porcentaje un 50 %.</p>
+        <p><b>Fuerza laboral</b> es la banda que incluye tercerizados: ×1,25 a ×5,24 sobre la planta, medido contra 47 IPS de la Costa con conteo conocido. La brecha tiene tamaño: en 2021 las ESE gastaron <b>$11,4 billones en servicios de salud comprados contra $1,5 billones de nómina propia</b>, 7,5 a 1.</p>
+        <p><b>Para ARL esa brecha es el negocio, no un tecnicismo.</b> La afiliación sigue al empleador de registro: la planta en nómina es lo que la IPS afilia por su cuenta; a los tercerizados los afilia la bolsa de empleo que los contrata. Son dos cuentas y dos ventas distintas.</p>
+        <p>Sedes, servicios y capacidad instalada sí son dato duro del REPS, con corte del 16 de septiembre de 2026. Los financieros son de Supersalud y llegan hasta 2021: es la última vigencia que esa entidad publicó.</p>
       </div>
     </details>
   </main>
@@ -343,6 +359,12 @@
   buildChecks(document.getElementById("natChecks"), nats, "fNat", function(k){ return k; });
   buildChecks(document.getElementById("claseChecks"), clases, "fClase", function(k){ return CLASES[k]||k; });
 
+  var TEND = {creciendo:"Creciendo (≥ +10 %)", estable:"Estable (±10 %)",
+              decreciendo:"Decreciendo (≤ −10 %)", sin_serie:"Sin serie comparable"};
+  var tends = {};
+  ROWS.forEach(function(r){ var t = r[C.tendencia]; if(t) tends[t] = (tends[t]||0)+1; });
+  buildChecks(document.getElementById("tendChecks"), tends, "fTend", function(k){ return TEND[k]||k; });
+
   // ---- estado
   var sel = new Set(), limite = 250, sortKey = "planta", sortDir = -1, vista = [];
 
@@ -362,6 +384,8 @@
     var cMin = val("camasMin"), cMax = val("camasMax");
     var sMin = val("salasMin"), sMax = val("salasMax");
     var seMin = val("sedesMin"), seMax = val("sedesMax");
+    var tendsOn = checked("fTend");
+    var crMin = val("crecMin"), crMax = val("crecMax");
     var oNuevo = document.getElementById("fNuevo").checked;
     var oNomina = document.getElementById("fNomina").checked;
     var oFin = document.getElementById("fFin").checked;
@@ -389,6 +413,8 @@
       if(!rango(r[C.camas], cMin, cMax)) return false;
       if(!rango(r[C.salas_cirugia], sMin, sMax)) return false;
       if(!rango(r[C.sedes], seMin, seMax)) return false;
+      if(tendsOn.length && tendsOn.indexOf(r[C.tendencia]) < 0) return false;
+      if(!rango(r[C.crecimiento], crMin, crMax)) return false;
       if(oNuevo && !r[C.serv_nuevos_12m]) return false;
       if(oNomina && r[C.metodo] !== "nom") return false;
       if(oFin && r[C.ingresos_mm] == null && r[C.activos_mm] == null) return false;
@@ -412,6 +438,7 @@
   function pintar(){
     // tiles
     var n = vista.length, camas = 0, planta = 0, flb = 0, fla = 0, nuevos = 0, conNom = 0;
+    var creciendo = 0, conSerie = 0;
     vista.forEach(function(r){
       camas += r[C.camas] || 0;
       planta += r[C.planta] || 0;
@@ -419,6 +446,10 @@
       fla += r[C.fl_alto] || 0;
       if(r[C.serv_nuevos_12m]) nuevos++;
       if(r[C.metodo] === "nom") conNom++;
+      if(r[C.tendencia] && r[C.tendencia] !== "sin_serie"){
+        conSerie++;
+        if(r[C.tendencia] === "creciendo") creciendo++;
+      }
     });
     var tiles = [
       ["Entidades", fmt(n), n ? Math.round(conNom/n*100) + " % con nómina real" : "sin resultados", true],
@@ -426,6 +457,7 @@
       ["Planta en nómina", fmt(planta), "suma de estimaciones", false],
       ["Fuerza laboral", fmt(flb) + "–" + fmt(fla), "banda con tercerizados", false],
       ["Servicio nuevo 12m", fmt(nuevos), "disparador REPS fechado", false],
+      ["Planta creciendo", fmt(creciendo), "de " + fmt(conSerie) + " con serie 19→21", false],
       ["Seleccionadas", fmt(sel.size), "listas para exportar", sel.size > 0]
     ];
     document.getElementById("tiles").innerHTML = tiles.map(function(t){
@@ -454,6 +486,7 @@
         '<td class="num">' + fmt(r[C.consultorios]) + "</td>" +
         '<td class="num">' + fmt(r[C.planta]) +
           (r[C.metodo] === "nom" ? ' <span class="chip nomina">nómina</span>' : "") + "</td>" +
+        '<td class="num">' + crecimiento(r) + "</td>" +
         '<td class="band">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
         '<td class="num">' + (r[C.serv_nuevos_12m] ? '<span class="chip nuevo">' + r[C.serv_nuevos_12m] + "</span>" : "·") + "</td>" +
         "</tr>";
@@ -473,6 +506,17 @@
       slice.length > 0 && slice.every(function(r){ return sel.has(r[C.nit]); });
   }
 
+  // El crecimiento se muestra con la serie que lo sustenta: sin 2019 y 2021
+  // comparables no hay número, y eso se dice en vez de mostrar un cero.
+  function crecimiento(r){
+    var v = r[C.crecimiento];
+    if(v == null) return '<span class="chip">sin serie</span>';
+    var cls = v >= 10 ? "crece" : v <= -10 ? "cae" : "";
+    var signo = v > 0 ? "+" : "";
+    return '<span class="delta ' + cls + '">' + signo + v.toFixed(0) + "%</span>" +
+      '<span class="serie">' + fmt(r[C.planta_2019]) + "→" + fmt(r[C.planta_2021]) + "</span>";
+  }
+
   function esc(s){
     return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
@@ -490,8 +534,10 @@
     ["sedes","sedes"],["servicios","servicios_habilitados"],["camas","camas"],
     ["salas_cirugia","salas_cirugia"],["consultorios","consultorios"],["ambulancias","ambulancias"],
     ["planta","planta_nomina_estimada"],["fl_bajo","fuerza_laboral_bajo"],["fl_alto","fuerza_laboral_alto"],
-    ["metodo","metodo_estimacion"],["ingresos_mm","ingresos_2021_millones"],
-    ["activos_mm","activos_2021_millones"],["serv_nuevos_12m","servicios_nuevos_12m"]
+    ["metodo","metodo_estimacion"],["planta_2019","planta_2019"],["planta_2021","planta_2021"],
+    ["crecimiento","crecimiento_pct_2019_2021"],["tendencia","tendencia_planta"],
+    ["ingresos_mm","ingresos_millones"],["activos_mm","activos_millones"],
+    ["serv_nuevos_12m","servicios_nuevos_12m"]
   ];
   function csv(rows, nombre){
     if(!rows.length){ alert("No hay filas que exportar con los filtros actuales."); return; }
@@ -514,14 +560,16 @@
   }
 
   // ---- eventos
-  ["q","mun","plantaMin","plantaMax","camasMin","camasMax","salasMin","salasMax","sedesMin","sedesMax"]
+  ["q","mun","plantaMin","plantaMax","camasMin","camasMax","salasMin","salasMax",
+   "sedesMin","sedesMax","crecMin","crecMax"]
     .forEach(function(id){ document.getElementById(id).addEventListener("input", filtrar); });
   depSel.addEventListener("change", filtrar);
   ["fNuevo","fNomina","fFin","fContacto","fRep"].forEach(function(id){
     document.getElementById(id).addEventListener("change", filtrar);
   });
   document.addEventListener("change", function(e){
-    if(e.target.classList.contains("fNat") || e.target.classList.contains("fClase")) filtrar();
+    if(e.target.classList.contains("fNat") || e.target.classList.contains("fClase")
+       || e.target.classList.contains("fTend")) filtrar();
   });
 
   document.querySelectorAll("th.sortable").forEach(function(th){

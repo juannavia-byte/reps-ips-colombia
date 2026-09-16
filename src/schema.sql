@@ -268,7 +268,14 @@ SELECT
     f.ingresos      AS fin_ingresos,
     (f.id IS NOT NULL) AS tiene_financiero
 FROM prestador p
-LEFT JOIN prestador_financiero f ON f.prestador_id = p.id;
+-- Una sola fila financiera por prestador: la vigencia más reciente que reportó.
+-- Con tres vigencias cargadas, un LEFT JOIN plano triplicaba cada prestador.
+LEFT JOIN LATERAL (
+    SELECT * FROM prestador_financiero pf
+    WHERE pf.prestador_id = p.id
+    ORDER BY pf.vigencia DESC, pf.ingresos DESC NULLS LAST
+    LIMIT 1
+) f ON true;
 
 COMMENT ON VIEW v_prestador_completo IS
     'Una fila por prestador con sedes, servicios y capacidad agregados. '

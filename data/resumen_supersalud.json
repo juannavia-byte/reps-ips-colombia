@@ -1,5 +1,5 @@
 {
-  "privadas_2021:FT001-01": {
+  "OTRAS CUENTAS DE ORDEN ACREEDORAS DE CONTROL (389):FT001-01": {
     "origen": "privada_g1",
     "filas": 125,
     "cruzados": 105,
@@ -13,7 +13,7 @@
     ],
     "cabecera_fila": 14
   },
-  "privadas_2021:FT001-02": {
+  "OTRAS CUENTAS DE ORDEN ACREEDORAS DE CONTROL (350):FT001-02": {
     "origen": "privada_g2",
     "filas": 4097,
     "cruzados": 3442,
@@ -27,7 +27,7 @@
     ],
     "cabecera_fila": 14
   },
-  "privadas_2021:FT001-03": {
+  "PROMESAS DE COMPRAVENTA (265):FT001-03": {
     "origen": "privada_g3",
     "filas": 1493,
     "cruzados": 1158,
@@ -41,7 +41,7 @@
     ],
     "cabecera_fila": 15
   },
-  "publicas_2021:IPS_PUBLICAS_DIC_2021": {
+  "......6310 Servicios de salud:IPS_PUBLICAS_DIC_2021": {
     "origen": "ese",
     "filas": 919,
     "cruzados": 916,
@@ -50,6 +50,90 @@
     "agregados_detectados": [
       "activos",
       "costos",
+      "pasivos",
+      "patrimonio"
+    ],
+    "cabecera_fila": 13
+  },
+  "6106:FT001-01": {
+    "origen": "privada_g1",
+    "filas": 109,
+    "cruzados": 82,
+    "sin_match": 27,
+    "tasa_cruce": 75.23,
+    "agregados_detectados": [],
+    "cabecera_fila": 10
+  },
+  "6106:FT001-2": {
+    "origen": "privada_g2",
+    "filas": 4197,
+    "cruzados": 3399,
+    "sin_match": 798,
+    "tasa_cruce": 80.99,
+    "agregados_detectados": [],
+    "cabecera_fila": 10
+  },
+  "6106:FT001-03": {
+    "origen": "privada_g3",
+    "filas": 1390,
+    "cruzados": 1021,
+    "sin_match": 369,
+    "tasa_cruce": 73.45,
+    "agregados_detectados": [],
+    "cabecera_fila": 11
+  },
+  "......6310 Servicios de salud:2020": {
+    "origen": "ese",
+    "filas": 924,
+    "cruzados": 917,
+    "sin_match": 7,
+    "tasa_cruce": 99.24,
+    "agregados_detectados": [
+      "activos",
+      "costos",
+      "ingresos",
+      "pasivos",
+      "patrimonio"
+    ],
+    "cabecera_fila": 13
+  },
+  "6101:FT001-01": {
+    "origen": "privada_g1",
+    "filas": 114,
+    "cruzados": 80,
+    "sin_match": 34,
+    "tasa_cruce": 70.18,
+    "agregados_detectados": [],
+    "cabecera_fila": 11
+  },
+  "6101:FT001-02": {
+    "origen": "privada_g2",
+    "filas": 4146,
+    "cruzados": 3221,
+    "sin_match": 925,
+    "tasa_cruce": 77.69,
+    "agregados_detectados": [],
+    "cabecera_fila": 11
+  },
+  "6101:FT001-03": {
+    "origen": "privada_g3",
+    "filas": 1386,
+    "cruzados": 985,
+    "sin_match": 401,
+    "tasa_cruce": 71.07,
+    "agregados_detectados": [],
+    "cabecera_fila": 12
+  },
+  "......6310 Servicios de salud:BASE DEF ": {
+    "origen": "ese",
+    "filas": 926,
+    "cruzados": 919,
+    "sin_match": 7,
+    "tasa_cruce": 99.24,
+    "agregados_detectados": [
+      "activos",
+      "costos",
+      "ingresos",
       "pasivos",
       "patrimonio"
     ],

@@ -41,11 +41,10 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/
 ARCHIVOS = {
     "privadas_2021": ("Catalogo_Cuentas_Diciembre_2021_IPS.xlsx", 2021, "privada"),
     "publicas_2021": ("EEFF_IPS_P%C3%BAblicas_2021.xlsx", 2021, "publica"),
-    # Vigencias anteriores, disponibles pero no cargadas por decisión de alcance:
-    # "privadas_2020": ("EEFF%20IPS%20Privadas%202020.xlsx", 2020, "privada"),
-    # "publicas_2020": ("EEFF%20IPS%20Publicas%202020.xlsx", 2020, "publica"),
-    # "privadas_2019": ("EF%20IPS%20PRIVADAS%202019.xlsx", 2019, "privada"),
-    # "publicas_2019": ("EF%20ESES%202019%20V3.xlsx", 2019, "publica"),
+    "privadas_2020": ("EEFF%20IPS%20Privadas%202020.xlsx", 2020, "privada"),
+    "publicas_2020": ("EEFF%20IPS%20Publicas%202020.xlsx", 2020, "publica"),
+    "privadas_2019": ("EF%20IPS%20PRIVADAS%202019.xlsx", 2019, "privada"),
+    "publicas_2019": ("EF%20ESES%202019%20V3.xlsx", 2019, "publica"),
 }
 
 

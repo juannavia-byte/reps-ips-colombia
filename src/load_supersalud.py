@@ -40,10 +40,21 @@ AGREGADOS = {
     "costos":     (("COSTOS",),     ("6 COSTOS",)),
 }
 
-HOJAS_PRIVADAS = {"FT001-01": "privada_g1", "FT001-02": "privada_g2", "FT001-03": "privada_g3"}
+# Los nombres de hoja NO son estables entre vigencias: 2021 usa "FT001-02",
+# 2020 usa "FT001-2", y las públicas usan "BASE DEF ", "2020" o
+# "IPS_PUBLICAS_DIC_2021". Por eso se resuelven por patrón, no por nombre exacto.
+import re as _re
+_GRUPO = _re.compile(r"FT001[-_ ]?0?([123])\b", _re.I)
 
 
-def cabecera(ws, limite=30):
+def origen_de_hoja(titulo: str, naturaleza: str) -> str | None:
+    if naturaleza == "publica":
+        return "ese"
+    m = _GRUPO.search(titulo or "")
+    return "privada_g" + m.group(1) if m else None
+
+
+def cabecera(ws, limite=40):
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=limite, values_only=True), start=1):
         vals = [str(c).strip() if c is not None else "" for c in row]
         if any(v.upper() in ("NIT", "CÓDIGO HABILITACIÓN") for v in vals[:4]):
@@ -130,8 +141,9 @@ def main() -> int:
 
         wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
         for ws in wb.worksheets:
-            origen = HOJAS_PRIVADAS.get(ws.title, "ese" if meta["naturaleza"] == "publica" else None)
+            origen = origen_de_hoja(ws.title, meta["naturaleza"])
             if origen is None:
+                print(f"  (hoja '{ws.title}' ignorada: no corresponde a un grupo NIIF)")
                 continue
             fila_cab, cols = cabecera(ws)
             if not fila_cab:
@@ -150,11 +162,21 @@ def main() -> int:
             with cx.cursor() as cur:
                 for nit, razon, row in filas_hoja(ws, fila_cab, cols, col_nit, col_razon):
                     pid = por_nit.get(nit)
-                    cuentas = {
-                        cols[i]: float(x)
-                        for i, x in enumerate(row)
-                        if i < len(cols) and cols[i] and isinstance(x, (int, float))
-                    }
+                    # OJO: los nombres de columna SE REPITEN. En el archivo de
+                    # privadas 2021 las seis cuentas de personal salen dos veces:
+                    # una en el bloque de gastos de administración y otra en el de
+                    # costos de operación —donde está la nómina asistencial—. Un
+                    # dict por nombre colapsaba las dos y perdía un bloque entero.
+                    # Se desambigua con el índice de columna y el estimador vuelve
+                    # a agregar por nombre base.
+                    cuentas = {}
+                    for i, x in enumerate(row):
+                        if i >= len(cols) or not cols[i] or not isinstance(x, (int, float)):
+                            continue
+                        col_clave = cols[i]
+                        if col_clave in cuentas:
+                            col_clave = f"{col_clave} ({i})"
+                        cuentas[col_clave] = float(x)
                     vals = {k: numero(row[i]) if i < len(row) else None for k, i in agg.items()}
                     cur.execute(
                         """INSERT INTO reps.prestador_financiero
