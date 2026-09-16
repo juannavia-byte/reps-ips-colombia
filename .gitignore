@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 .DS_Store
 tablero/datos.js
+dist/contactos_*.csv
