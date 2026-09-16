@@ -268,6 +268,101 @@
     font-variant-numeric:tabular-nums; color:var(--muted); text-align:right;
   }
 
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     PERFIL DEL PRESTADOR
+
+     Cajón lateral y no modal centrado: el perfil se lee CONTRA la tabla —se
+     abre uno, se cierra, se abre el siguiente— y un modal centrado tapa la
+     fila de la que se acaba de salir, que es justo la referencia que hace
+     falta para comparar.
+
+     A pantalla completa por debajo de 760px, donde 560px de cajón dejarían la
+     tabla en una franja inservible detrás.
+     ───────────────────────────────────────────────────────────────────────── */
+  .velo{
+    position:fixed; inset:0; background:rgba(18,28,24,.34);
+    opacity:0; pointer-events:none; transition:opacity .16s ease; z-index:40;
+  }
+  .velo.abierto{opacity:1; pointer-events:auto}
+  .perfil{
+    position:fixed; top:0; right:0; bottom:0; width:560px; max-width:100vw;
+    background:var(--surface); border-left:1px solid var(--line-strong);
+    display:flex; flex-direction:column; z-index:41;
+    transform:translateX(100%); transition:transform .18s ease;
+    box-shadow:-16px 0 40px rgba(18,28,24,.10);
+  }
+  .perfil.abierto{transform:none}
+  @media (max-width:760px){ .perfil{width:100vw; border-left:0} }
+  @media (prefers-reduced-motion:reduce){
+    .velo, .perfil{transition:none}
+  }
+
+  .perfil .cab{
+    padding:14px 16px; border-bottom:1px solid var(--line);
+    background:var(--surface-2); flex:0 0 auto;
+  }
+  .perfil .cab .fila1{display:flex; align-items:flex-start; gap:10px}
+  .perfil .cab h2{font-size:15px; line-height:1.3; margin:0; flex:1; font-weight:600}
+  .perfil .cab .nit{font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:3px}
+  .perfil .cerrar{
+    flex:0 0 auto; border:1px solid var(--line-strong); background:var(--surface);
+    border-radius:6px; width:26px; height:26px; line-height:1; cursor:pointer;
+    color:var(--muted); font-size:15px;
+  }
+  .perfil .cerrar:hover{background:var(--surface-3); color:var(--ink)}
+  .perfil .cuerpo{overflow-y:auto; padding:0 16px 24px; flex:1 1 auto}
+
+  .perfil section{padding-top:18px}
+  .perfil h3{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.11em;
+    text-transform:uppercase; color:var(--faint); margin:0 0 8px; font-weight:400;
+  }
+  .perfil .nota{font-size:11px; color:var(--muted); margin:6px 0 0; line-height:1.45}
+
+  /* Rejilla de datos sueltos: etiqueta arriba, valor abajo. */
+  .perfil .datos{display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:1px;
+    background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden}
+  .perfil .datos div{background:var(--surface); padding:7px 9px}
+  .perfil .datos .k{display:block; font-size:10px; color:var(--faint)}
+  .perfil .datos .v{display:block; font-size:13px; margin-top:2px; font-variant-numeric:tabular-nums}
+
+  /* Barras de aporte. El ancho es proporcional al mayor de la lista, así que
+     comunica peso RELATIVO dentro de esta cuenta, no una escala absoluta. */
+  .perfil .barras{display:flex; flex-direction:column; gap:1px}
+  .perfil .barra{display:grid; grid-template-columns:1fr 54px; gap:8px; align-items:center;
+    padding:4px 0; border-bottom:1px solid var(--line)}
+  .perfil .barra:last-child{border-bottom:0}
+  .perfil .barra .et{font-size:12px; position:relative; z-index:1}
+  .perfil .barra .et small{display:block; color:var(--faint); font-size:10.5px; line-height:1.35}
+  .perfil .barra .n{font-family:var(--mono); font-size:11.5px; text-align:right; color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .perfil .barra .pista{grid-column:1/2; height:3px; background:var(--surface-3); border-radius:2px; margin-top:3px}
+  .perfil .barra .pista i{display:block; height:100%; background:var(--accent); border-radius:2px}
+
+  /* Municipios: dónde está de verdad la operación. */
+  .perfil .muns{display:flex; flex-direction:column; gap:1px; max-height:260px; overflow-y:auto}
+  .perfil .mun{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:baseline;
+    padding:4px 0; border-bottom:1px solid var(--line); font-size:12px}
+  .perfil .mun:last-child{border-bottom:0}
+  .perfil .mun .dep{display:block; font-size:10.5px; color:var(--faint)}
+  .perfil .mun .s{font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap}
+
+  .perfil .listaserv{display:flex; flex-wrap:wrap; gap:4px}
+  .perfil .pill{
+    font-size:11px; padding:2px 7px; border-radius:99px;
+    border:1px solid var(--line-strong); color:var(--muted);
+  }
+  .perfil .pill.si{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink)}
+
+  .perfil .acciones{display:flex; gap:6px; flex-wrap:wrap; margin-top:12px}
+  .perfil .acciones button{
+    font:inherit; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  }
+  .perfil .acciones button:hover{background:var(--surface-3)}
+  tbody tr{cursor:pointer}
+  tbody td.c0{cursor:default}
   .chip{
     display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.06em;
     text-transform:uppercase; padding:1px 4px; border-radius:3px;
@@ -473,6 +568,22 @@
     </div>
   </main>
 </div>
+
+<div class="velo" id="velo" hidden></div>
+<aside class="perfil" id="perfil" role="dialog" aria-modal="true"
+       aria-labelledby="perfilNombre" hidden>
+  <div class="cab">
+    <div class="fila1">
+      <div style="flex:1;min-width:0">
+        <h2 id="perfilNombre"></h2>
+        <div class="nit" id="perfilNit"></div>
+      </div>
+      <button type="button" class="cerrar" id="perfilCerrar"
+              aria-label="Cerrar perfil">&times;</button>
+    </div>
+  </div>
+  <div class="cuerpo" id="perfilCuerpo"></div>
+</aside>
 
 <script src="datos.js"></script>
 <script>
@@ -699,7 +810,17 @@
     return Math.max(0, Math.min(1, (v - piso) / (techo - piso)));
   }
 
-  function calcRatio(r, cfg){
+  /*
+    Devuelve el cociente LTV:CAC. Si se le pasa un objeto en `det`, además lo
+    llena con las piezas que lo componen.
+
+    El desglose sale de ACÁ y no de una segunda función que repita la fórmula.
+    Dos implementaciones se separan en cuanto alguien toca una y olvida la
+    otra, y entonces el perfil contradiría al score de la tabla sin que nada
+    avise: el detector de deriva vigila este espejo contra Python, no vigilaría
+    un espejo del espejo.
+  */
+  function calcRatio(r, cfg, det){
     var pc = cfg.cac.pesos, esc = cfg.cac.estructura;
     var mult = cfg.ltv.multiplicadores;
     var esEse = r[C.ese] === 1;
@@ -722,6 +843,26 @@
       + pc.ciclo.peso * ciclo
       + pc.dispersion_geografica.peso * log2p(deptos);
 
+    if(det){
+      det.cac = {
+        total: cac,
+        estructura: {sedes: sedes, municipios: municipios, departamentos: deptos,
+                     personas_por_sede: sedes ? planta / sedes : 0},
+        partes: [
+          {k: "Base", v: cfg.cac.esfuerzo_base,
+           d: "El esfuerzo que cuesta cualquier cuenta, por pequeña que sea."},
+          {k: "Interlocutores", v: pc.interlocutores.peso * inter,
+           d: "≈ " + inter.toFixed(1) + " personas a convencer, por " + sedes +
+              (sedes === 1 ? " sede" : " sedes") + " y el tamaño de la planta."},
+          {k: "Ciclo", v: pc.ciclo.peso * ciclo,
+           d: "≈ " + (ciclo * 1).toFixed(1) + " meses, más largo cuanto más municipios."},
+          {k: "Dispersión", v: pc.dispersion_geografica.peso * log2p(deptos),
+           d: deptos + (deptos === 1 ? " departamento" : " departamentos") + " donde coordinar."}
+        ]
+      };
+      if(esEse) det.cac.ese = true;
+    }
+
     // LTV = comisión esperada de la escalera completa de ramos a 24 meses.
     // Por ramo: valor_relativo x probabilidad x norm(exposición).
     var VARIABLES = {
@@ -741,10 +882,17 @@
       return c.valor_relativo * c.probabilidad_24m * normPot(expo, c.referencia, c.exponente);
     }
     var subtotal = 0;
+    if(det) det.ramos = [];
     ["corporativos", "personas"].forEach(function(g){
       var pesoG = cfg.ltv.peso_grupo[g === "corporativos" ? "corporativo" : "personas"];
       var t = 0;
-      for(var nombre in cfg.ltv[g]) t += valorRamo(cfg.ltv[g][nombre]);
+      for(var nombre in cfg.ltv[g]){
+        var vr = valorRamo(cfg.ltv[g][nombre]);
+        t += vr;
+        // Se guarda YA multiplicado por el peso del grupo: es lo que ese ramo
+        // aporta de verdad al LTV, no su valor antes de ponderar.
+        if(det) det.ramos.push({nombre: nombre, grupo: g, valor: pesoG * vr});
+      }
       subtotal += pesoG * t;
     });
 
@@ -767,7 +915,25 @@
       * (planta < cfg.ltv.piso_operativo.umbral_planta ? cfg.ltv.piso_operativo.factor : 1);
 
     var expCac = cfg.escala.exponente_cac == null ? 1 : cfg.escala.exponente_cac;
-    return cac ? ltv / Math.pow(cac, expCac) : 0;
+    var ratio = cac ? ltv / Math.pow(cac, expCac) : 0;
+
+    if(det){
+      det.ltv = {subtotal: subtotal, base: base, total: ltv, crecimiento: nCrec};
+      det.multiplicadores = [
+        {k: "Reclasificación de riesgo", v: r[C.senal_riesgo] ? mult.reclasificacion_riesgo.valor : 1,
+         d: "Servicios de alto riesgo: la clase de ARL puede subir."},
+        {k: "Novedad REPS", v: r[C.serv_nuevos_12m] ? mult.novedad_reps.valor : 1,
+         d: "Habilitó servicio nuevo en los últimos 12 meses."},
+        {k: "Tipo de prestador", v: mTipo === undefined ? 1 : mTipo, d: tipo},
+        {k: "Salud financiera", v: r[C.deterioro] == null ? 1 : r[C.deterioro],
+         d: r[C.deterioro] == null ? "Sin estados financieros." : "Según el último cierre reportado."},
+        {k: "Piso operativo", v: planta < cfg.ltv.piso_operativo.umbral_planta ? cfg.ltv.piso_operativo.factor : 1,
+         d: "Castigo a los demasiado pequeños para sostener una póliza colectiva."}
+      ];
+      det.expCac = expCac;
+      det.ratio = ratio;
+    }
+    return ratio;
   }
 
   function recalcularScores(){
@@ -1052,6 +1218,232 @@
       (d > 0 ? "+" : "") + fmt(d) + "</span>" + '<span class="serie">' + pie + "</span>";
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     PERFIL DEL PRESTADOR
+
+     Todo lo que se muestra sale del payload que ya está en memoria o del
+     desglose que devuelve `calcRatio`. No hay ninguna consulta: el perfil
+     funciona igual servido desde el portal que abierto como archivo suelto.
+
+     Y por eso se recalcula en cada apertura en vez de cachearse: si alguien
+     mueve un slider de pesos con el perfil abierto, lo que se ve tiene que ser
+     el score nuevo, no el de hace un minuto.
+     ═══════════════════════════════════════════════════════════════════════ */
+  var perfilActual = null, focoPrevio = null;
+
+  function pct(v, max){ return max > 0 ? Math.max(0, Math.min(100, v / max * 100)) : 0; }
+
+  /** `rc_medica_institucional` no es un nombre para leer. */
+  function nombreRamo(k){
+    var especiales = {
+      arl: "ARL", d_and_o: "D&O", rc_medica_institucional: "RC médica institucional",
+      rc_profesional_individual: "RC profesional individual",
+      rc_extracontractual: "RC extracontractual", rc_contratistas: "RC contratistas",
+      rc_patronal: "RC patronal", rc_ambiental: "RC ambiental"
+    };
+    if(especiales[k]) return especiales[k];
+    var t = k.replace(/_/g, " ");
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  function filaBarra(etiqueta, detalle, valor, max, esFactor){
+    return '<div class="barra"><div class="et">' + esc(etiqueta) +
+      (detalle ? "<small>" + esc(detalle) + "</small>" : "") +
+      '<div class="pista"><i style="width:' + pct(valor, max).toFixed(1) + '%"></i></div></div>' +
+      '<div class="n">' + valor.toFixed(2) + (esFactor ? "×" : "") + "</div></div>";
+  }
+
+  function bloqueDatos(pares){
+    var hay = pares.filter(function(x){
+      return x[1] !== null && x[1] !== undefined && x[1] !== "";
+    });
+    if(!hay.length) return "";
+    return '<div class="datos">' + hay.map(function(x){
+      return '<div><span class="k">' + esc(x[0]) + '</span><span class="v">' + x[1] + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  function abrirPerfil(id){
+    var r = null;
+    for(var i = 0; i < ROWS.length; i++){ if(ROWS[i][C.nit] === id){ r = ROWS[i]; break; } }
+    if(!r) return;
+    perfilActual = id;
+    focoPrevio = document.activeElement;
+
+    var det = {};
+    calcRatio(r, PESOS, det);
+    var idx = r._i;
+
+    var nom = r[C.razon_social] || "";
+    $("perfilNombre").textContent = nom;
+    var chips = "";
+    if(r[C.ese] === 1) chips += ' <span class="chip ese">ESE</span>';
+    if(r[C.nivel]) chips += ' <span class="chip">Nivel ' + esc(r[C.nivel]) + "</span>";
+    if(r[C.naturaleza]) chips += ' <span class="chip">' + esc(r[C.naturaleza]) + "</span>";
+    $("perfilNit").innerHTML = "NIT " + esc(id) + (r[C.dv] ? "-" + esc(r[C.dv]) : "") + chips;
+
+    var h = "";
+
+    h += "<section>" + bloqueDatos([
+      ["Score ICP", SCORE[idx] == null ? "·" : SCORE[idx].toFixed(1)],
+      ["Prioridad", PRIOR[idx] || "·"],
+      ["LTV", det.ltv.total.toFixed(1)],
+      ["Esfuerzo (CAC)", det.cac.total.toFixed(2)]
+    ]) + '<p class="nota">El score es el cociente <b>LTV : CAC</b> en una escala de z sobre su logaritmo. ' +
+      "El LTV es la comisión esperada de la escalera completa de ramos a 24 meses; el CAC es esfuerzo y tiempo, no dinero.</p></section>";
+
+    var ramos = det.ramos.slice().sort(function(a, b){ return b.valor - a.valor; });
+    var maxRamo = ramos.length ? ramos[0].valor : 0;
+    var top = ramos.slice(0, 10), resto = ramos.slice(10);
+    var sumaResto = resto.reduce(function(a, x){ return a + x.valor; }, 0);
+    h += '<section><h3>Qué vender primero</h3><div class="barras">' +
+      top.map(function(x){
+        return filaBarra(nombreRamo(x.nombre),
+          x.grupo === "personas" ? "seguro de personal" : "corporativo",
+          x.valor, maxRamo, false);
+      }).join("") + "</div>" +
+      (resto.length ? '<p class="nota">Otros ' + resto.length + " ramos suman " + sumaResto.toFixed(1) + ".</p>" : "") +
+      '<p class="nota">Es lo que aporta cada ramo al LTV <b>de esta cuenta</b>, ya ponderado por su grupo. ' +
+      "El orden cambia si mueves los pesos.</p></section>";
+
+    var maxCac = det.cac.partes.reduce(function(a, x){ return Math.max(a, x.v); }, 0);
+    h += '<section><h3>De qué está hecho el esfuerzo</h3><div class="barras">' +
+      det.cac.partes.map(function(x){ return filaBarra(x.k, x.d, x.v, maxCac, false); }).join("") +
+      "</div>" +
+      (det.cac.ese ? '<p class="nota">Lleva recargo por ser <b>ESE</b>: compra pública, con sus tiempos.</p>' : "") +
+      "</section>";
+
+    var mults = det.multiplicadores.filter(function(x){ return Math.abs(x.v - 1) > 1e-9; });
+    if(mults.length){
+      var maxMul = mults.reduce(function(a, y){ return Math.max(a, y.v); }, 0);
+      h += '<section><h3>Lo que mueve el LTV</h3><div class="barras">' +
+        mults.map(function(x){ return filaBarra(x.k, x.d, x.v, maxMul, true); }).join("") +
+        "</div></section>";
+    }
+
+    var sm = r[C.sedes_mun];
+    if(sm){
+      var partes = sm.split("|").map(function(t){
+        var x = t.split("~");
+        return {mun: x[0], dep: x[1], n: parseInt(x[2], 10) || 0};
+      });
+      h += "<section><h3>Dónde está · " + partes.length +
+        (partes.length === 1 ? " municipio" : " municipios") + '</h3><div class="muns">' +
+        partes.map(function(x){
+          return '<div class="mun"><span>' + esc(x.mun) +
+            '<span class="dep">' + esc(x.dep) + "</span></span>" +
+            '<span class="s">' + x.n + (x.n === 1 ? " sede" : " sedes") + "</span></div>";
+        }).join("") + "</div>" +
+        (partes.length > 1 ? '<p class="nota">Ordenado por número de sedes. Los distritos ' +
+          "—Barranquilla, Cartagena, Santa Marta— figuran en REPS como departamento propio, " +
+          "separados de su departamento geográfico.</p>" : "") + "</section>";
+    }
+
+    h += "<section><h3>Capacidad</h3>" + bloqueDatos([
+      ["Sedes", fmt(r[C.sedes])], ["Servicios", fmt(r[C.servicios])],
+      ["Camas", fmt(r[C.camas])], ["Camas UCI", fmt(r[C.camas_uci])],
+      ["Quirófanos", fmt(r[C.salas_cirugia])], ["Consultorios", fmt(r[C.consultorios])],
+      ["Ambulancias", fmt(r[C.ambulancias])], ["Grupos", fmt(r[C.grupos])]
+    ]) + "</section>";
+
+    var servs = [
+      ["Internación", r[C.internacion]], ["Urgencias", r[C.urgencias]],
+      ["Laboratorio", r[C.laboratorio]], ["Farmacia", r[C.farmacia]],
+      ["Imagenología", r[C.imagenologia]], ["Alto costo", r[C.alto_costo]]
+    ];
+    h += '<section><h3>Qué hace</h3><div class="listaserv">' +
+      servs.map(function(x){
+        return '<span class="pill' + (x[1] ? " si" : "") + '">' + x[0] + "</span>";
+      }).join("") +
+      (r[C.compl_alta] ? '<span class="pill si">' + fmt(r[C.compl_alta]) +
+        " de alta complejidad</span>" : "") +
+      "</div></section>";
+
+    h += "<section><h3>Tamaño y crecimiento</h3>" + bloqueDatos([
+      ["Planta estimada", fmt(r[C.planta])],
+      ["Fuerza laboral", r[C.fl_bajo] == null ? null : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])],
+      ["Planta 2019", fmt(r[C.planta_2019])],
+      ["Planta 2021", fmt(r[C.planta_2021])],
+      ["Variación", r[C.crecimiento] == null ? null :
+        (r[C.crecimiento] > 0 ? "+" : "") + r[C.crecimiento] + " %"],
+      ["Tendencia", r[C.tendencia] ? esc(String(r[C.tendencia]).replace(/_/g, " ")) : null],
+      ["Servicios nuevos 12 m", fmt(r[C.serv_nuevos_12m])]
+    ]) + '<p class="nota">La planta se estima dividiendo la nómina reportada a Supersalud entre el costo por ' +
+      "trabajador calibrado año por año. <b>No es un dato publicado:</b> es una estimación, y por eso lleva banda.</p></section>";
+
+    if(r[C.ingresos_mm] != null || r[C.activos_mm] != null){
+      h += "<section><h3>Finanzas</h3>" + bloqueDatos([
+        ["Ingresos", r[C.ingresos_mm] == null ? null : "$" + corto(r[C.ingresos_mm] * 1e6)],
+        ["Activos", r[C.activos_mm] == null ? null : "$" + corto(r[C.activos_mm] * 1e6)]
+      ]) + '<p class="nota">Último cierre reportado a Supersalud. La serie pública se detiene en 2021.</p></section>';
+    }
+
+    h += "<section><h3>Contacto</h3>" + bloqueDatos([
+      ["Representante legal", r[C.rep_legal] ? esc(r[C.rep_legal]) : null],
+      ["Teléfono", r[C.telefono] ? esc(String(r[C.telefono])) : null],
+      ["Correo", r[C.email] ? '<a href="mailto:' + esc(r[C.email]) + '">' + esc(r[C.email]) + "</a>" : null]
+    ]) + '<p class="nota">REPS exige estos datos para habilitarse, así que casi siempre están — ' +
+      "pero son los del trámite, no necesariamente los de quien decide.</p>" +
+      '<div class="acciones">' +
+      '<button type="button" id="perfilSel">' +
+      (sel.has(id) ? "Quitar de la selección" : "Añadir a la selección") + "</button>" +
+      '<button type="button" id="perfilCopiar">Copiar resumen</button>' +
+      "</div></section>";
+
+    $("perfilCuerpo").innerHTML = h;
+    $("perfilCuerpo").scrollTop = 0;
+
+    $("perfilSel").onclick = function(){
+      if(sel.has(id)) sel.delete(id); else sel.add(id);
+      pintar();
+      this.textContent = sel.has(id) ? "Quitar de la selección" : "Añadir a la selección";
+    };
+    $("perfilCopiar").onclick = function(){
+      var t = nom + " (NIT " + id + ")\n" +
+        "Score " + (SCORE[idx] == null ? "·" : SCORE[idx].toFixed(1)) +
+        " · prioridad " + PRIOR[idx] + "\n" +
+        (r[C.municipio] || "") + ", " + (r[C.departamento] || "") + " · " +
+        fmt(r[C.sedes]) + " sedes · planta estimada " + fmt(r[C.planta]) + "\n" +
+        "Ramos con más valor: " +
+        top.slice(0, 5).map(function(x){ return nombreRamo(x.nombre); }).join(", ");
+      var boton = this;
+      // Sin https no hay portapapeles. Se avisa en vez de fallar en silencio.
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(t).then(function(){
+          boton.textContent = "Copiado";
+          setTimeout(function(){ boton.textContent = "Copiar resumen"; }, 1400);
+        })["catch"](function(){ boton.textContent = "No se pudo copiar"; });
+      } else {
+        boton.textContent = "No disponible sin https";
+      }
+    };
+
+    $("velo").hidden = false; $("perfil").hidden = false;
+    // Un cuadro de espera antes de la clase: puesta en el mismo, el navegador
+    // aplica el estado final de golpe y no hay transición que ver.
+    requestAnimationFrame(function(){
+      $("velo").classList.add("abierto");
+      $("perfil").classList.add("abierto");
+      $("perfilCerrar").focus();
+    });
+  }
+
+  function cerrarPerfil(){
+    if(!perfilActual) return;
+    perfilActual = null;
+    $("velo").classList.remove("abierto");
+    $("perfil").classList.remove("abierto");
+    var fin = function(){
+      $("velo").hidden = true; $("perfil").hidden = true;
+      if(focoPrevio && document.contains(focoPrevio)) focoPrevio.focus();
+      focoPrevio = null;
+    };
+    // `hidden` espera a que acabe la transición; si no, el cajón desaparece de
+    // golpe en vez de deslizarse.
+    if(matchMedia("(prefers-reduced-motion:reduce)").matches) fin();
+    else setTimeout(fin, 180);
+  }
+
   function contacto(r){
     var tel = r[C.telefono], mail = r[C.email];
     if(!tel && !mail) return '<span class="chip">sin contacto</span>';
@@ -1100,7 +1492,7 @@
       if(r[C.ese] === 1) chips += ' <span class="chip ese">ESE</span>';
       if(r[C.nivel]) chips += ' <span class="chip">Niv ' + r[C.nivel] + "</span>";
       if((r[C.n_dep]||1) > 3) chips += ' <span class="chip">' + r[C.n_dep] + " deptos</span>";
-      return '<tr class="' + (sel.has(id) ? "sel" : "") + '" data-id="' + esc(id) + '">' +
+      return '<tr class="' + (sel.has(id) ? "sel" : "") + '" data-id="' + esc(id) + '" tabindex="0">' +
         '<td class="c0"><input type="checkbox" class="rowchk"' + (sel.has(id) ? " checked" : "") + '></td>' +
         '<td class="c1"><span class="rz" title="' + esc(nom) + '">' + esc(nom) + "</span>" +
           '<span class="meta">NIT ' + esc(id) + (r[C.dv] ? "-" + esc(r[C.dv]) : "") + chips + "</span></td>" +
@@ -1250,16 +1642,40 @@
     });
   });
 
+  /*
+    La primera columna selecciona; el resto de la fila abre el perfil.
+
+    ⚠ ESTO CAMBIA UN GESTO QUE YA EXISTÍA: antes un clic en cualquier parte de
+    la fila la seleccionaba. Se movió porque el clic sobre el nombre es el
+    gesto natural para «ver esto», y seleccionar ya tiene columna propia con su
+    casilla visible. La selección múltiple no pierde nada: la casilla, su celda
+    entera y «marcar todas» siguen funcionando igual.
+  */
   $("tbody").addEventListener("click", function(e){
     var tr = e.target.closest("tr");
     if(!tr) return;
     var id = tr.dataset.id;
-    if(e.target.classList.contains("rowchk")){
-      if(e.target.checked) sel.add(id); else sel.delete(id);
-    } else {
-      if(sel.has(id)) sel.delete(id); else sel.add(id);
+    if(e.target.closest("td.c0")){
+      if(e.target.classList.contains("rowchk")){
+        if(e.target.checked) sel.add(id); else sel.delete(id);
+      } else {
+        if(sel.has(id)) sel.delete(id); else sel.add(id);
+      }
+      pintar();
+      return;
     }
-    pintar();
+    abrirPerfil(id);
+  });
+  // Teclado: la fila es destino de tabulación y Enter la abre.
+  $("tbody").addEventListener("keydown", function(e){
+    if(e.key !== "Enter") return;
+    var tr = e.target.closest("tr");
+    if(tr && tr.dataset.id){ e.preventDefault(); abrirPerfil(tr.dataset.id); }
+  });
+  $("perfilCerrar").onclick = cerrarPerfil;
+  $("velo").onclick = cerrarPerfil;
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape") cerrarPerfil();
   });
   $("selAll").addEventListener("change", function(e){
     vista.slice(0, limite).forEach(function(r){

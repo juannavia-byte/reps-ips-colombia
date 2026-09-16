@@ -54,6 +54,24 @@ WITH sede_ref AS (
   JOIN reps.sede s ON s.id = sv.sede_id
   JOIN reps.registro_habilitacion r ON r.id = s.registro_id
   GROUP BY 1
+), presencia AS (
+  -- Cuántas sedes tiene en cada municipio, para poder abrir el "+36" de la
+  -- tabla y ver de qué está hecho.
+  --
+  -- El departamento va junto al municipio y no aparte: hay nombres repetidos
+  -- entre departamentos —Candelaria existe en Atlántico y en Valle del Cauca—
+  -- y sin él las dos filas se fundirían en una.
+  --
+  -- Se ordena por número de sedes y no alfabéticamente: quien abre esto quiere
+  -- saber dónde está el peso de la operación, no recorrer una lista.
+  SELECT prestador_id,
+         string_agg(municipio || '~' || departamento || '~' || n, '|'
+                    ORDER BY n DESC, municipio) sedes_mun
+  FROM (SELECT r.prestador_id, s.municipio, s.departamento, count(*) n
+        FROM reps.sede s
+        JOIN reps.registro_habilitacion r ON r.id = s.registro_id
+        GROUP BY 1, 2, 3) t
+  GROUP BY prestador_id
 ), nuevos AS (
   SELECT r.prestador_id, count(*) n
   FROM reps.sede_servicio sv
@@ -87,7 +105,8 @@ SELECT p.numero_identificacion, p.digito_verificacion, p.razon_social,
        coalesce((SELECT sum(c.cantidad) FROM reps.sede_capacidad c
                  JOIN reps.sede sd ON sd.id=c.sede_id
                  JOIN reps.registro_habilitacion rr ON rr.id=sd.registro_id
-                 WHERE rr.prestador_id=p.id AND c.concepto_nombre ILIKE 'Intensiva%'),0)
+                 WHERE rr.prestador_id=p.id AND c.concepto_nombre ILIKE 'Intensiva%'),0),
+       pr.sedes_mun
 FROM reps.prestador p
 JOIN reps.v_prestador_completo v ON v.id = p.id
 LEFT JOIN sede_ref sr ON sr.prestador_id = p.id
@@ -97,6 +116,7 @@ LEFT JOIN nuevos nv   ON nv.prestador_id = p.id
 LEFT JOIN reps.estimacion_personal e ON e.prestador_id = p.id
 LEFT JOIN reps.score_icp sc ON sc.prestador_id = p.id
 LEFT JOIN amplitud am ON am.prestador_id = p.id
+LEFT JOIN presencia pr ON pr.prestador_id = p.id
 WHERE p.clase_prestador <> 'Profesional Independiente'
 ORDER BY coalesce(sc.score, -1) DESC
 """
@@ -110,7 +130,8 @@ COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
         "ingresos_mm", "activos_mm", "serv_nuevos_12m", "deps", "muns",
         "score", "prioridad", "ltv", "cac", "senal_riesgo", "deterioro",
         "grupos", "compl_alta", "imagenologia", "laboratorio", "farmacia",
-        "alto_costo", "internacion", "urgencias", "es_publica", "camas_uci"]
+        "alto_costo", "internacion", "urgencias", "es_publica", "camas_uci",
+        "sedes_mun"]
 
 
 def main() -> int:
