@@ -186,10 +186,15 @@
     background:var(--surface); overflow:auto; flex:1; min-height:0;
   }
   @media (max-width:900px){ .gridwrap{max-height:72vh} }
-  @media (max-width:1360px){
-    thead th:nth-child(7), tbody td:nth-child(7){display:none}
-  }
-  table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:max-content; min-width:100%}
+  td.contacto{font-family:var(--mono); font-size:10.5px; text-align:left; overflow:hidden}
+  td.contacto .tel{display:block; color:var(--ink); white-space:nowrap}
+  td.contacto .mail{display:block; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  /* Se revelan de menos a más importante según quepa: el sobrante se llena con
+     dato en vez de repartirse como aire entre las columnas numéricas. */
+  @media (max-width:1800px){ thead th:nth-child(13), tbody td:nth-child(13){display:none} }
+  @media (max-width:1520px){ thead th:nth-child(8),  tbody td:nth-child(8){display:none} }
+  @media (max-width:1360px){ thead th:nth-child(7),  tbody td:nth-child(7){display:none} }
+  table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:100%; min-width:900px}
   thead th{
     position:sticky; top:0; z-index:3; background:var(--surface-3);
     font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
@@ -200,8 +205,8 @@
   thead th.sortable{cursor:pointer; user-select:none}
   thead th.sortable:hover{color:var(--accent)}
   thead th .arrow{color:var(--accent)}
-  th.c0,td.c0{position:sticky; left:0; z-index:2; width:34px}
-  th.c1,td.c1{position:sticky; left:34px; z-index:2; width:230px}
+  th.c0,td.c0{position:sticky; left:0; z-index:2; min-width:30px}
+  th.c1,td.c1{position:sticky; left:30px; z-index:2}
   thead th.c0,thead th.c1{z-index:4}
   tbody td{padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; background:var(--surface)}
   tbody tr:hover td{background:var(--surface-2)}
@@ -308,14 +313,14 @@
     </div>
 
     <div class="group">
-      <span class="label">Capacidad instalada</span>
+      <span class="label">Capacidad instalada · mínimo</span>
       <div class="pair">
-        <input type="number" id="camasMin" placeholder="camas ≥" min="0">
-        <input type="number" id="salasMin" placeholder="salas cx ≥" min="0">
+        <input type="number" id="camasMin" placeholder="camas" min="0">
+        <input type="number" id="salasMin" placeholder="salas cx" min="0">
       </div>
       <div class="pair">
-        <input type="number" id="consMin" placeholder="consult. ≥" min="0">
-        <input type="number" id="sedesMin" placeholder="sedes ≥" min="0">
+        <input type="number" id="consMin" placeholder="consult." min="0">
+        <input type="number" id="sedesMin" placeholder="sedes" min="0">
       </div>
     </div>
 
@@ -359,6 +364,7 @@
             <option value="salas_cirugia">Salas de cirugía</option>
             <option value="consultorios">Consultorios</option>
             <option value="sedes">Sedes</option>
+            <option value="servicios">Servicios habilitados</option>
             <option value="serv_nuevos_12m">Servicios nuevos 12 m</option>
             <option value="razon_social">Razón social (A–Z)</option>
           </select>
@@ -371,17 +377,19 @@
       <table>
         <thead>
           <tr>
-            <th class="c0"><input type="checkbox" id="selAll" title="Seleccionar lo visible"></th>
-            <th class="c1 sortable" data-k="razon_social">Prestador</th>
-            <th style="width:106px">Ubicación</th>
-            <th class="num sortable" data-k="sedes" style="width:56px">Sedes</th>
-            <th class="num sortable" data-k="camas" style="width:60px">Camas</th>
-            <th class="num sortable" data-k="salas_cirugia" style="width:62px">Salas cx</th>
-            <th class="num sortable" data-k="consultorios" style="width:56px">Consult.</th>
-            <th class="num sortable" data-k="planta" style="width:92px">Planta est.</th>
-            <th class="num sortable" data-k="delta_personas" style="width:90px">Crec. 19→21</th>
-            <th class="num" style="width:90px">Fuerza laboral</th>
-            <th class="num sortable" data-k="serv_nuevos_12m" style="width:54px">Serv. 12m</th>
+            <th class="c0" style="width:2%"><input type="checkbox" id="selAll" title="Seleccionar lo visible"></th>
+            <th class="c1 sortable" data-k="razon_social" style="width:21.5%">Prestador</th>
+            <th style="width:9.5%">Ubicación</th>
+            <th class="num sortable" data-k="sedes" style="width:4.5%">Sedes</th>
+            <th class="num sortable" data-k="camas" style="width:5%">Camas</th>
+            <th class="num sortable" data-k="salas_cirugia" style="width:5%">Salas cx</th>
+            <th class="num sortable" data-k="consultorios" style="width:5%">Consult.</th>
+            <th class="num sortable" data-k="servicios" style="width:5.5%">Servicios</th>
+            <th class="num sortable" data-k="planta" style="width:8%">Planta est.</th>
+            <th class="num sortable" data-k="delta_personas" style="width:8%">Crec. 19→21</th>
+            <th class="num" style="width:8.5%">Fuerza laboral</th>
+            <th class="num sortable" data-k="serv_nuevos_12m" style="width:4.5%">Serv. 12m</th>
+            <th style="width:12%">Contacto</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -704,6 +712,15 @@
       (d > 0 ? "+" : "") + fmt(d) + "</span>" + '<span class="serie">' + pie + "</span>";
   }
 
+  function contacto(r){
+    var tel = r[C.telefono], mail = r[C.email];
+    if(!tel && !mail) return '<span class="chip">sin contacto</span>';
+    var out = "";
+    if(tel) out += '<span class="tel">' + esc(String(tel).split(/[-,/]/)[0].trim()) + "</span>";
+    if(mail) out += '<span class="mail" title="' + esc(mail) + '">' + esc(mail) + "</span>";
+    return out;
+  }
+
   function pintar(){
     var n = vista.length, camas = 0, planta = 0, flb = 0, fla = 0;
     var nuevos = 0, conNom = 0, creciendo = 0, conSerie = 0;
@@ -751,11 +768,13 @@
         '<td class="num">' + fmt(r[C.camas]) + "</td>" +
         '<td class="num">' + fmt(r[C.salas_cirugia]) + "</td>" +
         '<td class="num">' + fmt(r[C.consultorios]) + "</td>" +
+        '<td class="num">' + fmt(r[C.servicios]) + "</td>" +
         '<td class="num">' + fmt(r[C.planta]) +
           (r[C.metodo] === "nom" ? ' <span class="chip nom">nómina</span>' : "") + "</td>" +
         '<td class="num">' + crecimiento(r) + "</td>" +
         '<td class="band">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
         '<td class="num">' + (r[C.serv_nuevos_12m] || "·") + "</td>" +
+        '<td class="contacto">' + contacto(r) + "</td>" +
         "</tr>";
     }).join("");
 
