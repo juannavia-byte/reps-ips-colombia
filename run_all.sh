@@ -13,5 +13,8 @@ echo "==> carga"
 $PY src/load.py            --dsn "$DSN" --raw data/raw --schema src/schema.sql
 $PY src/load_supersalud.py --dsn "$DSN" --raw data/raw
 
+echo "==> score de ICP"
+$PY src/score_icp.py --dsn "$DSN"
+
 echo "==> reporte"
 $PY src/report.py --dsn "$DSN" --raw data/raw --salida docs/reporte.md

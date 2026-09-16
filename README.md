@@ -19,6 +19,7 @@ modelado y trazable.
 | `sede_capacidad` | 97.549 | un concepto de capacidad por sede |
 | `prestador_financiero` | 6.634 | un NIT por vigencia y origen |
 | `estimacion_personal` | 10.646 | trabajadores estimados, con método y banda |
+| `score_icp` | 10.646 | score LTV:CAC con el desglose de qué lo empujó |
 
 De las 57.663 entidades, **8.972 son IPS**; el resto son profesionales
 independientes, objeto social diferente y transporte especial de pacientes.
@@ -60,9 +61,13 @@ src/schema.sql            DDL comentado con las decisiones de modelado
 src/load.py               parseo, deduplicación, QA y carga de REPS
 src/load_supersalud.py    carga financiera y cruce por NIT
 src/estimar_personal.py   estimación de trabajadores (nómina + capacidad)
+src/score_icp.py          score de ICP por cociente LTV:CAC
+src/recalibrar.py         compara el score contra cierres reales
+config/pesos_icp.json     pesos y umbrales del score · lo único editable a mano
 src/report.py             reporte de volúmenes, cruce, calidad y limitaciones
 tablero/index.html        tablero de filtrado y exportación a CSV
 docs/00-fuentes.md        qué se verificó de cada fuente y qué no existe
+docs/02-score-icp.md      cómo ajustar pesos y cómo registrar un cierre
 docs/reporte.md           salida del último run
 ```
 
@@ -134,3 +139,24 @@ Se regenera con `python src/build_tablero.py --dsn "$DSN"`.
 
 Usa la conexión **directa** (puerto 5432), no el pooler de transacciones (6543):
 `pg_restore` necesita sesión y el pooler la corta.
+
+
+## Score de ICP
+
+Cociente **LTV : CAC** por prestador, donde el CAC es esfuerzo y tiempo —
+interlocutores, ciclo, investigación previa, distancia a quien decide — y el LTV es
+el valor de la cuenta completa a 24 meses, no solo la ARL de entrada.
+
+El score es el **percentil** del cociente: 93 significa "está en el 7 % mejor".
+Reparto actual: 10 % alta · 25 % media · 65 % baja.
+
+Los pesos viven en `config/pesos_icp.json` y **no hay ninguno escrito en el código**.
+En el tablero hay un panel de sliders para probarlos en vivo; para dejarlos fijos se
+edita el JSON y se regenera.
+
+> Los pesos iniciales **no están calibrados con datos**: salieron de la lógica del
+> método comercial porque todavía no hay historial de cierres. Se corrigen
+> registrando cierres en `datos/cierres.csv` y corriendo `src/recalibrar.py`, que
+> señala qué peso parece mal puesto sin ajustarlo solo.
+
+Detalle completo en [`docs/02-score-icp.md`](docs/02-score-icp.md).

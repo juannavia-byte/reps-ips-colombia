@@ -136,6 +136,37 @@
   .preset .t{display:block; font-size:12.5px; font-weight:600}
   .preset .d{display:block; font-size:11px; color:var(--muted); margin-top:1px}
 
+  details.pesos{border:1px solid var(--line); border-radius:6px; background:var(--surface-2); padding:8px 10px}
+  details.pesos summary{
+    cursor:pointer; font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--faint); font-weight:600;
+  }
+  details.pesos[open] summary{color:var(--accent); margin-bottom:7px}
+  details.pesos .hint{margin:0 0 9px}
+  details.pesos code{font-family:var(--mono); font-size:10.5px}
+  .peso{display:flex; flex-direction:column; gap:2px; margin-bottom:9px}
+  .peso .fila{display:flex; align-items:baseline; gap:6px; font-size:11.5px}
+  .peso .fila b{margin-left:auto; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--accent-ink)}
+  .peso input[type=range]{width:100%; accent-color:var(--accent); margin:0}
+  .peso .por{font-size:10.5px; color:var(--faint); line-height:1.35}
+  .grupoPeso{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.11em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; margin:10px 0 5px; padding-top:7px;
+    border-top:1px solid var(--line);
+  }
+  .grupoPeso:first-child{border-top:0; padding-top:0; margin-top:0}
+
+  .score{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; font-size:14px; display:block}
+  .score.alta{color:var(--accent)}
+  .score.baja{color:var(--faint)}
+  .prio{
+    display:inline-block; font-family:var(--mono); font-size:8.5px; letter-spacing:.08em;
+    text-transform:uppercase; padding:1px 4px; border-radius:3px; margin-top:1px;
+  }
+  .prio.alta{background:var(--accent); color:#fff}
+  .prio.media{background:var(--surface-3); color:var(--muted); border:1px solid var(--line-strong)}
+  .prio.baja{color:var(--faint)}
+
   .railbtn{
     background:none; border:1px solid var(--line-strong); color:var(--muted);
     border-radius:5px; padding:6px 10px; cursor:pointer; font-size:12.5px;
@@ -191,9 +222,9 @@
   td.contacto .mail{display:block; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   /* Se revelan de menos a más importante según quepa: el sobrante se llena con
      dato en vez de repartirse como aire entre las columnas numéricas. */
-  @media (max-width:1800px){ thead th:nth-child(13), tbody td:nth-child(13){display:none} }
-  @media (max-width:1520px){ thead th:nth-child(8),  tbody td:nth-child(8){display:none} }
-  @media (max-width:1360px){ thead th:nth-child(7),  tbody td:nth-child(7){display:none} }
+  @media (max-width:1800px){ thead th:nth-child(14), tbody td:nth-child(14){display:none} }
+  @media (max-width:1520px){ thead th:nth-child(9),  tbody td:nth-child(9){display:none} }
+  @media (max-width:1360px){ thead th:nth-child(8),  tbody td:nth-child(8){display:none} }
   table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:100%; min-width:900px}
   thead th{
     position:sticky; top:0; z-index:3; background:var(--surface-3);
@@ -325,6 +356,11 @@
     </div>
 
     <div class="group">
+      <span class="label">Prioridad por score ICP</span>
+      <div class="checks" id="prioChecks"></div>
+    </div>
+
+    <div class="group">
       <span class="label">Tendencia de planta 2019→2021</span>
       <div class="checks" id="tendChecks"></div>
     </div>
@@ -346,6 +382,16 @@
       </div>
     </div>
 
+    <details class="pesos" id="panelPesos">
+      <summary>Pesos del score ICP</summary>
+      <p class="hint">El score es <b>LTV : CAC</b>, donde el CAC es esfuerzo y tiempo, no plata.
+        Mueve un peso y la tabla se reordena al instante. Los cambios viven solo en esta
+        pestaña: para dejarlos fijos hay que editar <code>config/pesos_icp.json</code>
+        y volver a generar.</p>
+      <div id="controlesPesos"></div>
+      <button class="railbtn" id="resetPesos" type="button">Volver a los pesos del archivo</button>
+    </details>
+
     <button class="railbtn" id="reset" type="button">Limpiar todos los filtros</button>
   </aside>
 
@@ -357,6 +403,7 @@
         <div class="orden">
           <span>Ordenar por</span>
           <select id="orden">
+            <option value="score">Score ICP</option>
             <option value="planta">Planta estimada</option>
             <option value="delta_personas">Personas sumadas 19→21</option>
             <option value="crecimiento">Crecimiento % 19→21</option>
@@ -378,16 +425,17 @@
         <thead>
           <tr>
             <th class="c0" style="width:2%"><input type="checkbox" id="selAll" title="Seleccionar lo visible"></th>
-            <th class="c1 sortable" data-k="razon_social" style="width:21.5%">Prestador</th>
-            <th style="width:9.5%">Ubicación</th>
+            <th class="c1 sortable" data-k="razon_social" style="width:18%">Prestador</th>
+            <th class="num sortable" data-k="score" style="width:6%">Score ICP</th>
+            <th style="width:8.5%">Ubicación</th>
             <th class="num sortable" data-k="sedes" style="width:4.5%">Sedes</th>
             <th class="num sortable" data-k="camas" style="width:5%">Camas</th>
             <th class="num sortable" data-k="salas_cirugia" style="width:5%">Salas cx</th>
             <th class="num sortable" data-k="consultorios" style="width:5%">Consult.</th>
             <th class="num sortable" data-k="servicios" style="width:5.5%">Servicios</th>
             <th class="num sortable" data-k="planta" style="width:8%">Planta est.</th>
-            <th class="num sortable" data-k="delta_personas" style="width:8%">Crec. 19→21</th>
-            <th class="num" style="width:8.5%">Fuerza laboral</th>
+            <th class="num sortable" data-k="delta_personas" style="width:7.5%">Crec. 19→21</th>
+            <th class="num" style="width:7.5%">Fuerza laboral</th>
             <th class="num sortable" data-k="serv_nuevos_12m" style="width:4.5%">Serv. 12m</th>
             <th style="width:12%">Contacto</th>
           </tr>
@@ -525,6 +573,14 @@
   buildChecks($("natChecks"), nats, "fNat", function(k){ return k; });
   buildChecks($("tendChecks"), tends, "fTend", function(k){ return TEND[k] || k; });
 
+  ["alta", "media", "baja"].forEach(function(k){
+    var l = document.createElement("label");
+    l.className = "check";
+    l.innerHTML = '<input type="checkbox" class="fPrio" value="' + k + '">' + k +
+      '<span class="n" data-prio="' + k + '">·</span>';
+    $("prioChecks").appendChild(l);
+  });
+
   // ── atajos de planta
   [["≥ 50",50],["≥ 100",100],["≥ 200",200],["≥ 500",500]].forEach(function(p){
     var b = document.createElement("button");
@@ -581,6 +637,193 @@
     $("presets").appendChild(b);
   });
 
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SCORE ICP · espejo en el navegador de src/score_icp.py
+  //
+  // La receta está escrita dos veces a propósito: en Python para que quede en
+  // la base y en el export, y aquí para que mover un peso reordene la tabla sin
+  // volver a generar nada. Para que no se desincronicen, al arrancar se compara
+  // el score de aquí con el que trae la base y se avisa por consola si difieren.
+  // Si ves ese aviso, alguien cambió una fórmula y no la otra.
+  // ══════════════════════════════════════════════════════════════════════════
+  var PESOS0 = window.DATOS.pesos_icp;
+  var PESOS = JSON.parse(JSON.stringify(PESOS0));
+  var SCORE = [], PRIOR = [];
+  ROWS.forEach(function(r, i){ r._i = i; });
+
+  function tramoPlanta(planta, tramos){
+    var p = planta || 0;
+    for(var i = 0; i < tramos.length; i++){
+      if(tramos[i].hasta === null || p <= tramos[i].hasta) return tramos[i];
+    }
+    return tramos[tramos.length - 1];
+  }
+  function normPot(v, ref, exp){
+    if(!v || v <= 0) return 0;
+    return Math.min(1, Math.pow(v / ref, exp));
+  }
+  function normLin(v, piso, techo){
+    if(techo === piso) return 0;
+    return Math.max(0, Math.min(1, (v - piso) / (techo - piso)));
+  }
+
+  function calcRatio(r, cfg){
+    var pc = cfg.cac.pesos, esc = cfg.cac.escalas;
+    var pl = cfg.ltv.pesos, mult = cfg.ltv.multiplicadores;
+    var esEse = r[C.ese] === 1;
+
+    var t = tramoPlanta(r[C.planta], esc.tramos_planta);
+    var inter = t.interlocutores + (esEse ? esc.recargo_ese.interlocutores : 0);
+    var ciclo = t.ciclo_meses + (esEse ? esc.recargo_ese.ciclo_meses : 0);
+    var faltan = (r[C.telefono] ? 0 : 1) + (r[C.email] ? 0 : 1) + (r[C.rep_legal] ? 0 : 1);
+    var red = (r[C.n_dep] || 1) > esc.umbral_red_nacional_deptos ? 1 : 0;
+
+    var cac = cfg.cac.esfuerzo_base
+      + pc.interlocutores.peso * inter
+      + pc.ciclo_meses.peso * ciclo
+      + pc.perfilamiento_faltante.peso * faltan
+      + pc.red_nacional.peso * red;
+
+    var planta = r[C.planta] || 0;
+    var contratistas = Math.max(0, (r[C.fl_alto] || 0) - planta);
+    var crec = r[C.crecimiento];
+    var nCrec = (crec === null || crec === undefined)
+      ? cfg.ltv.neutro_sin_crecimiento
+      : normLin(crec, pl.crecimiento.piso_pct, pl.crecimiento.techo_pct);
+
+    var base = pl.tamano_planta.peso * normPot(planta, pl.tamano_planta.referencia, pl.tamano_planta.exponente)
+             + pl.contratistas.peso * normPot(contratistas, pl.contratistas.referencia, pl.contratistas.exponente)
+             + pl.crecimiento.peso * nCrec;
+
+    var tipo = esEse ? "ese"
+      : r[C.clase] === "Obje" ? "objeto_social_distinto"
+      : r[C.clase] === "Tran" ? "transporte_pacientes" : "ips";
+    var mTipo = mult.tipo_prestador[tipo];
+
+    var ltv = base
+      * (r[C.senal_riesgo] ? mult.reclasificacion_riesgo.valor : 1)
+      * (r[C.serv_nuevos_12m] ? mult.novedad_reps.valor : 1)
+      * (mTipo === undefined ? 1 : mTipo)
+      * (r[C.deterioro] == null ? 1 : r[C.deterioro])
+      * (planta < cfg.ltv.piso_operativo.umbral_planta ? cfg.ltv.piso_operativo.factor : 1);
+
+    return cac ? ltv / cac : 0;
+  }
+
+  function recalcularScores(){
+    var n = ROWS.length;
+    var ratios = ROWS.map(function(r){ return Math.round(calcRatio(r, PESOS) * 1e6) / 1e6; });
+    var orden = ratios.map(function(_, i){ return i; })
+                      .sort(function(a, b){ return ratios[a] - ratios[b]; });
+    SCORE = new Array(n);
+    // Mismo criterio que src/score_icp.py: los empates comparten percentil.
+    for(var i = 0; i < n; ){
+      var j = i;
+      while(j + 1 < n && ratios[orden[j + 1]] === ratios[orden[i]]) j++;
+      var valor = n > 1 ? 100 * ((i + j) / 2) / (n - 1) : 100;
+      for(var k = i; k <= j; k++) SCORE[orden[k]] = valor;
+      i = j + 1;
+    }
+    PRIOR = new Array(n);
+    var u = PESOS.umbrales;
+    for(var i = 0; i < n; i++){
+      PRIOR[i] = SCORE[i] >= u.alta ? "alta" : SCORE[i] >= u.media ? "media" : "baja";
+    }
+  }
+
+  function celdaScore(i){
+    var p = PRIOR[i];
+    // Un decimal solo arriba: si no, las mejores cuentas se ven todas en "100"
+    // y se pierde justo el orden que más importa.
+    var v = SCORE[i];
+    return '<span class="score ' + p + '">' + v.toFixed(v >= 99 ? 1 : 0) + "</span>" +
+      '<span class="prio ' + p + '">' + p + "</span>";
+  }
+
+  function verificarEspejo(){
+    var dif = 0, n = 0;
+    ROWS.forEach(function(r, i){
+      if(r[C.score] == null) return;
+      dif += Math.abs(SCORE[i] - r[C.score]); n++;
+    });
+    var medio = n ? dif / n : 0;
+    if(medio > 1.5){
+      console.warn("[score ICP] El cálculo del navegador y el de la base difieren en " +
+        medio.toFixed(2) + " puntos de media. Revisa que src/score_icp.py y este archivo " +
+        "usen la misma fórmula.");
+    }
+    return medio;
+  }
+
+  var CONTROLES = [
+    {g: "CAC · fricción"},
+    {ruta: "cac.pesos.interlocutores.peso", t: "Interlocutores", max: 3,
+     d: "Cuánta gente hay que convencer antes de la firma."},
+    {ruta: "cac.pesos.ciclo_meses.peso", t: "Duración del ciclo", max: 3,
+     d: "Meses estimados hasta cerrar."},
+    {ruta: "cac.pesos.perfilamiento_faltante.peso", t: "Datos de contacto que faltan", max: 3,
+     d: "Investigación previa por cada dato ausente."},
+    {ruta: "cac.pesos.red_nacional.peso", t: "Decide un corporativo lejos", max: 3,
+     d: "Penaliza que la decisión no esté en la sede local."},
+    {g: "LTV · valor a 24 meses"},
+    {ruta: "ltv.pesos.tamano_planta.peso", t: "Planta en nómina", max: 3,
+     d: "Base de la prima de ARL, el ramo de entrada."},
+    {ruta: "ltv.pesos.contratistas.peso", t: "Contratistas tercerizados", max: 3,
+     d: "Volumen para el ancla de RC de contratistas."},
+    {ruta: "ltv.pesos.crecimiento.peso", t: "Crecimiento 19→21", max: 3,
+     d: "Recorrido de cross-sell hacia adelante."},
+    {g: "Multiplicadores"},
+    {ruta: "ltv.multiplicadores.reclasificacion_riesgo.valor", t: "Señal de reclasificación", min: 1, max: 2.5,
+     d: "Alto riesgo habilitado que la clase de ARL probablemente no refleja."},
+    {ruta: "ltv.multiplicadores.novedad_reps.valor", t: "Servicio nuevo (12 m)", min: 1, max: 2.5,
+     d: "Disparador público y fechado."},
+    {ruta: "ltv.multiplicadores.tipo_prestador.ese", t: "Peso de las ESE", min: 0, max: 1,
+     d: "En 0 desaparecen del ranking de frío; se ganan por SECOP."},
+    {ruta: "ltv.piso_operativo.factor", t: "Piso bajo el tamaño mínimo", min: 0.05, max: 1,
+     d: "Cuánto se hunde una cuenta pequeña."},
+    {g: "Cortes de prioridad (percentil)"},
+    {ruta: "umbrales.alta", t: "Alta desde", min: 50, max: 99, paso: 1, ent: true,
+     d: "Percentil desde el cual una cuenta es prioridad alta."},
+    {ruta: "umbrales.media", t: "Media desde", min: 20, max: 95, paso: 1, ent: true,
+     d: "Percentil desde el cual es prioridad media."}
+  ];
+  function leer(ruta){ return ruta.split(".").reduce(function(o,k){ return o[k]; }, PESOS); }
+  function escribir(ruta, v){
+    var ks = ruta.split("."), o = PESOS;
+    for(var i = 0; i < ks.length - 1; i++) o = o[ks[i]];
+    o[ks[ks.length - 1]] = v;
+  }
+  function pintarPanel(){
+    var host = $("controlesPesos");
+    host.innerHTML = "";
+    CONTROLES.forEach(function(c){
+      if(c.g){
+        var h = document.createElement("div");
+        h.className = "grupoPeso"; h.textContent = c.g;
+        host.appendChild(h);
+        return;
+      }
+      var val = leer(c.ruta), paso = c.paso || 0.05;
+      var wrap = document.createElement("div");
+      wrap.className = "peso";
+      wrap.innerHTML =
+        '<div class="fila"><span>' + esc(c.t) + "</span><b>" + (c.ent ? val : val.toFixed(2)) + "</b></div>" +
+        '<input type="range" min="' + (c.min !== undefined ? c.min : 0) + '" max="' + c.max +
+          '" step="' + paso + '" value="' + val + '">' +
+        '<span class="por">' + esc(c.d) + "</span>";
+      var input = wrap.querySelector("input"), eco = wrap.querySelector("b");
+      input.addEventListener("input", function(){
+        var v = parseFloat(input.value);
+        escribir(c.ruta, v);
+        eco.textContent = c.ent ? v : v.toFixed(2);
+        recalcularScores();
+        filtrar();
+      });
+      host.appendChild(wrap);
+    });
+  }
+
   // ── estado
   var sel = new Set(), limite = 200, orden = "planta", dir = -1, vista = [];
 
@@ -601,6 +844,7 @@
     var mun = $("mun").value.trim().toLowerCase();
     var depsOn = marcados("fDep"), natsOn = marcados("fNat");
     var clasesOn = marcados("fClase"), tendsOn = marcados("fTend");
+    var priosOn = marcados("fPrio");
     var pMin = val("plantaMin"), pMax = val("plantaMax");
     var cMin = val("camasMin"), sMin = val("salasMin");
     var coMin = val("consMin"), seMin = val("sedesMin");
@@ -617,6 +861,7 @@
       if(natsOn.length && natsOn.indexOf(r[C.naturaleza]) < 0) return false;
       if(clasesOn.length && clasesOn.indexOf(r[C.clase]) < 0) return false;
       if(tendsOn.length && tendsOn.indexOf(r[C.tendencia]) < 0) return false;
+      if(priosOn.length && priosOn.indexOf(PRIOR[r._i]) < 0) return false;
       if(pMin != null && (r[C.planta] == null || r[C.planta] < pMin)) return false;
       if(pMax != null && (r[C.planta] == null || r[C.planta] > pMax)) return false;
       if(cMin != null && (r[C.camas]||0) < cMin) return false;
@@ -633,7 +878,10 @@
 
     var k = C[orden];
     vista.sort(function(a,b){
-      var x = a[k], y = b[k];
+      // El score se ordena por el valor recalculado en vivo, no por el que venía
+      // en los datos: si no, mover un peso no reordenaría nada.
+      var x = orden === "score" ? SCORE[a._i] : a[k];
+      var y = orden === "score" ? SCORE[b._i] : b[k];
       if(orden === "razon_social") return (x||"").localeCompare(y||"","es") * (dir === -1 ? -1 : 1);
       // Los vacíos van SIEMPRE al final. Si se les diera un valor extremo,
       // al invertir el orden coparían las primeras filas.
@@ -662,6 +910,9 @@
     });
     marcados("fNat").forEach(function(c){
       add(c, function(){ document.querySelector('.fNat[value="' + c + '"]').checked = false; });
+    });
+    marcados("fPrio").forEach(function(c){
+      add("prioridad " + c, function(){ document.querySelector('.fPrio[value="' + c + '"]').checked = false; });
     });
     marcados("fTend").forEach(function(c){
       add(TEND[c] || c, function(){ document.querySelector('.fTend[value="' + c + '"]').checked = false; });
@@ -723,7 +974,7 @@
 
   function pintar(){
     var n = vista.length, camas = 0, planta = 0, flb = 0, fla = 0;
-    var nuevos = 0, conNom = 0, creciendo = 0, conSerie = 0;
+    var nuevos = 0, conNom = 0, creciendo = 0, conSerie = 0, altas = 0;
     vista.forEach(function(r){
       camas += r[C.camas] || 0;
       planta += r[C.planta] || 0;
@@ -731,6 +982,7 @@
       fla += r[C.fl_alto] || 0;
       if(r[C.serv_nuevos_12m]) nuevos++;
       if(r[C.metodo] === "nom") conNom++;
+      if(PRIOR[r._i] === "alta") altas++;
       if(r[C.tendencia] && r[C.tendencia] !== "sin_serie"){
         conSerie++;
         if(r[C.tendencia] === "creciendo") creciendo++;
@@ -743,6 +995,7 @@
       ["Camas", corto(camas), "declaradas en REPS", false],
       ["Creciendo", fmt(creciendo), "de " + fmt(conSerie) + " con serie", false],
       ["Novedad REPS", fmt(nuevos), "servicio nuevo 12 m", false],
+      ["Prioridad alta", fmt(altas), "por score ICP", altas > 0],
       ["Seleccionadas", fmt(sel.size), "listas para exportar", sel.size > 0]
     ];
     $("tiles").innerHTML = tiles.map(function(t){
@@ -752,6 +1005,7 @@
 
     var slice = vista.slice(0, limite);
     $("tbody").innerHTML = slice.map(function(r){
+      var i = r._i;
       var id = r[C.nit], nom = r[C.razon_social] || "";
       var chips = "";
       if(r[C.ese] === 1) chips += ' <span class="chip ese">ESE</span>';
@@ -761,6 +1015,7 @@
         '<td class="c0"><input type="checkbox" class="rowchk"' + (sel.has(id) ? " checked" : "") + '></td>' +
         '<td class="c1"><span class="rz" title="' + esc(nom) + '">' + esc(nom) + "</span>" +
           '<span class="meta">NIT ' + esc(id) + (r[C.dv] ? "-" + esc(r[C.dv]) : "") + chips + "</span></td>" +
+        '<td class="num">' + celdaScore(i) + "</td>" +
         '<td class="geo" title="' + esc(r[C.municipio] || "") + '">' + esc(r[C.municipio] || "·") +
           (r[C.n_mun] > 1 ? " +" + (r[C.n_mun]-1) : "") +
           '<span class="dep">' + esc(r[C.departamento] || "") + "</span></td>" +
@@ -791,6 +1046,11 @@
       more.textContent = "Mostrando las " + fmt(n) + " que cumplen los filtros.";
     }
 
+    var porPrio = {alta:0, media:0, baja:0};
+    vista.forEach(function(r){ porPrio[PRIOR[r._i]]++; });
+    document.querySelectorAll("[data-prio]").forEach(function(e){
+      e.textContent = porPrio[e.dataset.prio].toLocaleString("es-CO");
+    });
     $("dockCount").innerHTML = "<b>" + fmt(n) + "</b> filtradas · <b>" + fmt(sel.size) + "</b> seleccionadas";
     $("expSel").disabled = sel.size === 0;
     $("selAll").checked = slice.length > 0 && slice.every(function(r){ return sel.has(r[C.nit]); });
@@ -825,6 +1085,7 @@
     ["salas_cirugia","salas_cirugia"],["consultorios","consultorios"],["ambulancias","ambulancias"],
     ["planta","planta_nomina_estimada"],["fl_bajo","fuerza_laboral_bajo"],["fl_alto","fuerza_laboral_alto"],
     ["metodo","metodo_estimacion"],["planta_2019","planta_2019"],["planta_2021","planta_2021"],
+    ["_score","score_icp"],["_prioridad","prioridad_icp"],["ltv","ltv_estimado"],["cac","cac_esfuerzo"],
     ["crecimiento","crecimiento_pct_2019_2021"],["delta_personas","personas_sumadas_2019_2021"],
     ["tendencia","tendencia_planta"],
     ["ingresos_mm","ingresos_millones"],["activos_mm","activos_millones"],
@@ -835,7 +1096,11 @@
     var head = EXPORT.map(function(p){ return p[1]; }).join(";");
     var body = filas.map(function(r){
       return EXPORT.map(function(p){
-        var v = r[C[p[0]]];
+        // Score y prioridad salen de lo recalculado en pantalla: lo que se
+        // exporta es exactamente lo que se está viendo.
+        var v = p[0] === "_score" ? SCORE[r._i].toFixed(1)
+              : p[0] === "_prioridad" ? PRIOR[r._i]
+              : r[C[p[0]]];
         if(v == null) return "";
         v = String(v);
         return /[;"\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
@@ -873,7 +1138,8 @@
         if(r) r.checked = todos.length > 0 && puestos.length === todos.length;
       });
       despresetear(); filtrar();
-    } else if(t.classList.contains("fNat") || t.classList.contains("fClase") || t.classList.contains("fTend")){
+    } else if(t.classList.contains("fNat") || t.classList.contains("fClase")
+              || t.classList.contains("fTend") || t.classList.contains("fPrio")){
       despresetear(); filtrar();
     }
   });
@@ -919,6 +1185,14 @@
 
   // El navegador restaura el estado de los formularios al recargar; se limpia
   // para que lo que se ve coincida siempre con lo que está aplicado.
+  pintarPanel();
+  recalcularScores();
+  verificarEspejo();
+  $("resetPesos").onclick = function(){
+    PESOS = JSON.parse(JSON.stringify(PESOS0));
+    pintarPanel(); recalcularScores(); filtrar();
+  };
+
   limpiar();
   filtrar();
 })();

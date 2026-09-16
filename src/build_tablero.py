@@ -58,7 +58,12 @@ SELECT p.numero_identificacion, p.digito_verificacion, p.razon_social,
        CASE WHEN e.personal_2019 IS NOT NULL AND e.personal_2021 IS NOT NULL
             THEN e.personal_2021 - e.personal_2019 END AS delta_personas,
        v.fin_ingresos, v.fin_activos, coalesce(nv.n, 0),
-       g.deps, g.muns
+       g.deps, g.muns,
+       sc.score, sc.prioridad, sc.ltv, sc.cac,
+       -- Insumos crudos del score, para que el panel de pesos pueda recalcular
+       -- en el navegador sin volver a consultar la base.
+       (jsonb_array_length(sc.desglose->'multiplicadores'->'senales_alto_riesgo') > 0)::int senal_riesgo,
+       (sc.desglose->'multiplicadores'->>'deterioro_financiero')::numeric deterioro
 FROM reps.prestador p
 JOIN reps.v_prestador_completo v ON v.id = p.id
 LEFT JOIN sede_ref sr ON sr.prestador_id = p.id
@@ -66,8 +71,9 @@ LEFT JOIN geo g       ON g.prestador_id = p.id
 LEFT JOIN contacto c  ON c.prestador_id = p.id
 LEFT JOIN nuevos nv   ON nv.prestador_id = p.id
 LEFT JOIN reps.estimacion_personal e ON e.prestador_id = p.id
+LEFT JOIN reps.score_icp sc ON sc.prestador_id = p.id
 WHERE p.clase_prestador <> 'Profesional Independiente'
-ORDER BY coalesce(e.personal_estimado, 0) DESC
+ORDER BY coalesce(sc.score, -1) DESC
 """
 
 COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
@@ -76,7 +82,8 @@ COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
         "camas", "salas_cirugia", "consultorios", "ambulancias",
         "planta", "fl_bajo", "fl_alto", "metodo",
         "planta_2019", "planta_2021", "crecimiento", "tendencia", "delta_personas",
-        "ingresos_mm", "activos_mm", "serv_nuevos_12m", "deps", "muns"]
+        "ingresos_mm", "activos_mm", "serv_nuevos_12m", "deps", "muns",
+        "score", "prioridad", "ltv", "cac", "senal_riesgo", "deterioro"]
 
 
 def main() -> int:
@@ -102,12 +109,18 @@ def main() -> int:
         f[26] = None if f[26] is None else round(float(f[26]), 1)   # crecimiento %
         f[29] = num(f[29], 1e6)             # ingresos a millones
         f[30] = num(f[30], 1e6)             # activos a millones
+        i = COLS.index("score")
+        for j in (i, i + 2, i + 3, i + 5):   # score, ltv, cac, deterioro
+            f[j] = None if f[j] is None else round(float(f[j]), 3)
         filas.append(f)
 
-    payload = {"generado": date.today().isoformat(), "cols": COLS, "rows": filas}
+    pesos = json.loads((raiz_cfg := Path(__file__).resolve().parent.parent)
+                       .joinpath("config/pesos_icp.json").read_text(encoding="utf-8"))
+    payload = {"generado": date.today().isoformat(), "cols": COLS, "rows": filas,
+               "pesos_icp": pesos}
     crudo = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
-    raiz = Path(__file__).resolve().parent.parent
+    raiz = raiz_cfg
     (raiz / "tablero" / "datos.js").write_text("window.DATOS=" + crudo + ";", encoding="utf-8")
 
     plantilla = (raiz / "tablero" / "index.html").read_text(encoding="utf-8")
