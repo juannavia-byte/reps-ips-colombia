@@ -89,6 +89,8 @@ WITH geo AS (
          bool_or(sv.especificidades->>'especificidad_oncologico' = 'SI')            oncologico,
          bool_or(sv.especificidades->>'especificidad_atencion_paciente_quemado' = 'SI') quemados,
          bool_or(sv.especificidades->>'especificidad_salud_mental' = 'SI')          salud_mental,
+         count(DISTINCT sv.grupo_nombre)                                            n_grupos,
+         count(*) FILTER (WHERE sv.complejidad_alta)                                n_compl_alta,
          bool_or(sv.especificidades->>'especificidad_trasplante_renal' = 'SI'
               OR sv.especificidades->>'especificidad_trasplante_osteomuscular' = 'SI'
               OR sv.especificidades->>'especificidad_trasplante_piel' = 'SI'
@@ -122,6 +124,7 @@ SELECT p.id, p.clase_prestador, coalesce(p.es_ese, false),
        coalesce(ri.quirurgico, false), coalesce(ri.compl_alta, false),
        coalesce(ri.oncologico, false), coalesce(ri.quemados, false),
        coalesce(ri.salud_mental, false), coalesce(ri.trasplante, false),
+       coalesce(ri.n_grupos, 0), coalesce(ri.n_compl_alta, 0),
        coalesce(u.camas_uci, 0),
        coalesce(nv.n, 0),
        f.patrimonio, f.ingresos, f.costos,
@@ -211,29 +214,37 @@ def calcular(fila: dict, cfg: dict) -> dict:
     cac = cac_cfg["esfuerzo_base"] + sum(aportes_cac.values())
 
     # ── LTV: valor de la cuenta completa a 24 meses
-    # Los tercerizados son la diferencia entre la fuerza laboral y la nómina
-    # propia: ahí está el volumen de contratistas del ancla de RC.
-    contratistas = max(0, (fila["fl_alto"] or 0) - planta)
-    # Índice de capacidad: dato duro, ponderado porque una sala de cirugía
-    # expone mucho más que un consultorio.
-    comp = pl["capacidad_instalada"]["componentes"]
-    capacidad = sum((fila[k] or 0) * peso for k, peso in comp.items())
+    # Cada término del LTV mide un tramo distinto de la escalera de cross-sell.
+    #
+    # Se eliminó el término "contratistas": era planta x 4,24, porque
+    # fuerza_laboral_alto se calcula como planta x 5,24 con un factor fijo. La
+    # correlación entre ambas era 1,0000 exacta, así que el dato menos confiable
+    # del modelo estaba contado dos veces y pesaba la mitad del LTV.
+    #
+    # Entró `sedes`, que en una regresión de ln(ingresos) sobre 4.650
+    # prestadores es el predictor duro más fuerte (elasticidad 1,12) y hasta
+    # ahora solo aparecía en el CAC, como costo.
+    VALORES = {
+        "nomina_arl": planta,
+        "sedes": fila["n_sedes"] or 1,
+        "salas_cirugia": fila["salas_cirugia"] or 0,
+        "complejidad_alta": fila["n_compl_alta"] or 0,
+        "amplitud_escalera": fila["n_grupos"] or 0,
+        "servicios": fila["n_servicios"] or 0,
+        "camas": fila["camas"] or 0,
+        "ambulancias": fila["ambulancias"] or 0,
+        "consultorios": fila["consultorios"] or 0,
+    }
     crec = fila["crecimiento"]
     norm_crec = (ltv_cfg["neutro_sin_crecimiento"] if crec is None
                  else norm_lineal(float(crec), pl["crecimiento"]["piso_pct"],
                                   pl["crecimiento"]["techo_pct"]))
 
-    def aporte(clave, valor):
-        c = pl[clave]
-        return c["peso"] * norm_potencia(valor, c["referencia"], c["exponente"])
-
     aportes_ltv = {
-        "tamano_planta": aporte("tamano_planta", planta),
-        "contratistas": aporte("contratistas", contratistas),
-        "capacidad_instalada": aporte("capacidad_instalada", capacidad),
-        "servicios_habilitados": aporte("servicios_habilitados", fila["n_servicios"] or 0),
-        "crecimiento": pl["crecimiento"]["peso"] * norm_crec,
+        k: pl[k]["peso"] * norm_potencia(v, pl[k]["referencia"], pl[k]["exponente"])
+        for k, v in VALORES.items() if k in pl
     }
+    aportes_ltv["crecimiento"] = pl["crecimiento"]["peso"] * norm_crec
     base_ltv = sum(aportes_ltv.values())
 
     mult = ltv_cfg["multiplicadores"]
@@ -264,7 +275,10 @@ def calcular(fila: dict, cfg: dict) -> dict:
     m_piso = piso["factor"] if bajo_umbral else 1.0
 
     ltv = base_ltv * m_reclas * m_novedad * m_tipo * m_det * m_piso
-    ratio = ltv / cac if cac else 0.0
+    # exponente_cac permite decidir cuánto pesa el esfuerzo frente al valor.
+    # En 1 es un cociente normal; subirlo castiga más a las cuentas difíciles.
+    exp_cac = cfg["escala"].get("exponente_cac", 1.0)
+    ratio = ltv / (cac ** exp_cac) if cac else 0.0
 
     return {
         "ltv": round(ltv, 4), "cac": round(cac, 4), "ratio": ratio,
@@ -279,8 +293,7 @@ def calcular(fila: dict, cfg: dict) -> dict:
                                    "personas_por_sede": round(planta / sedes, 1)}},
             "ltv": {**{k: round(v, 3) for k, v in aportes_ltv.items()},
                     "base": round(base_ltv, 3),
-                    "indice_capacidad": capacidad,
-                    "servicios": fila["n_servicios"] or 0},
+                    "insumos": {k: v for k, v in VALORES.items()}},
             "multiplicadores": {
                 "reclasificacion_riesgo": m_reclas,
                 "senales_alto_riesgo": senales,
@@ -361,6 +374,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dsn", required=True)
     ap.add_argument("--pesos", default="config/pesos_icp.json")
+    ap.add_argument("--autocalibrar", action="store_true",
+                    help="reescribe escala.centro y escala.dispersion con lo observado "
+                         "y vuelve a puntuar. Úsalo tras cambiar pesos de forma grande.")
     args = ap.parse_args()
 
     cfg = json.loads(Path(args.pesos).read_text(encoding="utf-8"))
@@ -375,13 +391,28 @@ def main() -> int:
         columnas = ["id", "clase", "es_ese", "planta", "fl_alto", "crecimiento",
                     "n_sedes", "n_mun", "n_dep",
                     "tel", "mail", "rep", "quirurgico", "compl_alta", "oncologico",
-                    "quemados", "salud_mental", "trasplante", "camas_uci", "serv_nuevos",
+                    "quemados", "salud_mental", "trasplante", "n_grupos", "n_compl_alta",
+                    "camas_uci", "serv_nuevos",
                     "patrimonio", "ingresos", "costos",
                     "camas", "salas_cirugia", "consultorios", "ambulancias", "n_servicios"]
         filas = [dict(zip(columnas, r)) for r in cur]
     print(f"· prestadores con estimación de planta: {len(filas):,}")
 
     resultados = [calcular(f, cfg) for f in filas]
+
+    if args.autocalibrar and cfg["escala"].get("modo") == "z_log":
+        # Cambiar un peso mueve la escala del cociente y deja obsoletas las
+        # constantes. Esto las vuelve a fijar sobre lo observado y guarda el
+        # archivo, para no tener que perseguirlas a mano.
+        import statistics as st
+        logs = [math.log(max(r["ratio"], 1e-9)) for r in resultados]
+        cfg["escala"]["centro"] = round(st.mean(logs), 3)
+        cfg["escala"]["dispersion"] = round(st.pstdev(logs) or 1.0, 3)
+        Path(args.pesos).write_text(
+            json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"· autocalibrado: centro {cfg['escala']['centro']}, "
+              f"dispersión {cfg['escala']['dispersion']} (guardado en {args.pesos})")
+
     escalar(resultados, cfg)
     print(f"· escala: {cfg['escala'].get('modo', 'lineal')}")
     salida = [(f["id"], r["score"], r["prioridad"], r["ltv"], r["cac"], r["ratio"],

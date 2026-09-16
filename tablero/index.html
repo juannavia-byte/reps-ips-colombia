@@ -688,23 +688,27 @@
       + pc.dispersion_geografica.peso * log2p(deptos)
       + pc.perfilamiento_faltante.peso * faltan;
 
-    var contratistas = Math.max(0, (r[C.fl_alto] || 0) - planta);
-    var comp = pl.capacidad_instalada.componentes;
-    var capacidad = (r[C.camas] || 0) * comp.camas
-                  + (r[C.salas_cirugia] || 0) * comp.salas_cirugia
-                  + (r[C.consultorios] || 0) * comp.consultorios
-                  + (r[C.ambulancias] || 0) * comp.ambulancias;
-
+    // Un término por tramo de la escalera de cross-sell. Se quitó "contratistas":
+    // era planta x 4,24, con correlación 1,0000 contra planta.
+    var VALORES = {
+      nomina_arl: planta,
+      sedes: r[C.sedes] || 1,
+      salas_cirugia: r[C.salas_cirugia] || 0,
+      complejidad_alta: r[C.compl_alta] || 0,
+      amplitud_escalera: r[C.grupos] || 0,
+      servicios: r[C.servicios] || 0,
+      camas: r[C.camas] || 0,
+      ambulancias: r[C.ambulancias] || 0,
+      consultorios: r[C.consultorios] || 0
+    };
     var crec = r[C.crecimiento];
     var nCrec = (crec == null) ? cfg.ltv.neutro_sin_crecimiento
       : normLin(crec, pl.crecimiento.piso_pct, pl.crecimiento.techo_pct);
 
-    function aporte(c, v){ return c.peso * normPot(v, c.referencia, c.exponente); }
-    var base = aporte(pl.tamano_planta, planta)
-             + aporte(pl.contratistas, contratistas)
-             + aporte(pl.capacidad_instalada, capacidad)
-             + aporte(pl.servicios_habilitados, r[C.servicios] || 0)
-             + pl.crecimiento.peso * nCrec;
+    var base = pl.crecimiento.peso * nCrec;
+    for(var k in VALORES){
+      if(pl[k]) base += pl[k].peso * normPot(VALORES[k], pl[k].referencia, pl[k].exponente);
+    }
 
     var tipo = esEse ? "ese"
       : r[C.clase] === "Obje" ? "objeto_social_distinto"
@@ -718,7 +722,8 @@
       * (r[C.deterioro] == null ? 1 : r[C.deterioro])
       * (planta < cfg.ltv.piso_operativo.umbral_planta ? cfg.ltv.piso_operativo.factor : 1);
 
-    return cac ? ltv / cac : 0;
+    var expCac = cfg.escala.exponente_cac == null ? 1 : cfg.escala.exponente_cac;
+    return cac ? ltv / Math.pow(cac, expCac) : 0;
   }
 
   function recalcularScores(){
@@ -790,16 +795,29 @@
     {ruta: "cac.estructura.c_dispersion", t: "Municipios → ciclo", max: 2,
      d: "Cuánto alarga el ciclo operar en más ciudades."},
     {g: "LTV · valor a 24 meses"},
-    {ruta: "ltv.pesos.contratistas.peso", t: "Contratistas tercerizados", max: 3,
-     d: "Volumen para el ancla de RC de contratistas."},
-    {ruta: "ltv.pesos.tamano_planta.peso", t: "Planta en nómina", max: 3,
-     d: "Base de la prima de ARL. Dato estimado: por eso no va solo."},
-    {ruta: "ltv.pesos.capacidad_instalada.peso", t: "Capacidad instalada", max: 3,
-     d: "Dato duro: camas, salas, consultorios y ambulancias ponderados."},
-    {ruta: "ltv.pesos.servicios_habilitados.peso", t: "Servicios habilitados", max: 3,
-     d: "Dato duro: superficie de cross-sell."},
-    {ruta: "ltv.pesos.crecimiento.peso", t: "Crecimiento 19→21", max: 3,
+    {ruta: "ltv.pesos.nomina_arl.peso", t: "Planta en nómina → ARL", max: 2,
+     d: "Dato estimado: por eso pesa menos de lo que la regresión le daría."},
+    {ruta: "ltv.pesos.sedes.peso", t: "Sedes", max: 2,
+     d: "Dato duro. El predictor de ingresos más fuerte del REPS."},
+    {ruta: "ltv.pesos.salas_cirugia.peso", t: "Salas de cirugía → RC médica", max: 2,
+     d: "Dato duro. Donde se opera está la severidad."},
+    {ruta: "ltv.pesos.complejidad_alta.peso", t: "Servicios de alta complejidad", max: 2,
+     d: "Dato duro. Segunda elasticidad más alta de la regresión."},
+    {ruta: "ltv.pesos.amplitud_escalera.peso", t: "Amplitud de la escalera", max: 2,
+     d: "Dato duro. Grupos de servicio distintos: de cuántos tramos hay materia prima."},
+    {ruta: "ltv.pesos.servicios.peso", t: "Servicios habilitados", max: 2,
+     d: "Dato duro con 96 % de cobertura."},
+    {ruta: "ltv.pesos.camas.peso", t: "Camas → todo riesgo", max: 2,
+     d: "Dato duro. Hospitalización."},
+    {ruta: "ltv.pesos.ambulancias.peso", t: "Ambulancias → autos", max: 2,
+     d: "Dato duro. Único proxy de flota propia."},
+    {ruta: "ltv.pesos.consultorios.peso", t: "Consultorios → RC contratistas", max: 2,
+     d: "Dato duro. Puestos de profesionales, muchos contratistas."},
+    {ruta: "ltv.pesos.crecimiento.peso", t: "Crecimiento 19→21", max: 2,
      d: "Recorrido de cross-sell hacia adelante."},
+    {g: "Cómo se combinan"},
+    {ruta: "escala.exponente_cac", t: "Cuánto pesa el esfuerzo", min: 0.5, max: 3,
+     d: "LTV ÷ CAC elevado a este número. En 1 el esfuerzo casi no cuenta; subirlo castiga las cuentas difíciles."},
     {g: "Multiplicadores"},
     {ruta: "ltv.multiplicadores.reclasificacion_riesgo.valor", t: "Señal de reclasificación", min: 1, max: 2.5,
      d: "Alto riesgo habilitado que la clase de ARL probablemente no refleja."},

@@ -75,36 +75,88 @@ Por eso el score dejó de ser percentil y pasó a ser el logaritmo del cociente
 estandarizado. En una lista filtrada típica (291 IPS de la Costa) los scores ahora
 se reparten entre 59 y 87 con 29 valores distintos, en vez de amontonarse en 98.
 
-## Qué empuja el score hacia arriba
+## La auditoría del LTV (v3)
 
-**Del lado del valor** — cinco variables, dos de ellas dato duro, para que el score
-no dependa de que la planta estimada sea exacta
+Se revisó el otro lado de la ecuación y aparecieron dos cosas.
 
-| Variable | Peso inicial | Por qué |
-|---|---|---|
-| Contratistas tercerizados | **1,2** | El más alto a propósito. Brecha entre fuerza laboral y nómina propia: el volumen de médicos contratistas que habilita el ancla de RC de contratistas. |
-| Planta en nómina | 0,9 | Base de la prima de ARL. **Dato estimado**, por eso pesa menos que antes y no va solo. |
-| Capacidad instalada | 0,8 | **Dato duro.** Camas ×3, salas de cirugía ×5, consultorios ×1, ambulancias ×2: una sala expone mucho más que un consultorio. |
-| Servicios habilitados | 0,6 | **Dato duro.** Superficie de cross-sell: cada servicio es exposición que alguien tiene que amparar. |
-| Crecimiento 19→21 | 0,6 | Una IPS que crece tiene más recorrido de cross-sell. |
-| Señal de reclasificación | ×1,35 | Habilitó cirugía, UCI, oncológico, quemados, salud mental o trasplantes, y con alta probabilidad sigue cotizando ARL en la clase III inicial. |
-| Servicio nuevo en 12 meses | ×1,20 | Disparador público y fechado. |
+**1. Una variable estaba contada dos veces.** `contratistas` se calculaba como
+fuerza laboral menos planta, pero la fuerza laboral es `planta × 5,24` con un
+factor fijo. Entonces `contratistas = planta × 4,24`: **la correlación entre
+ambas era 1,0000 exacta**. Eran los dos pesos más altos del LTV, así que el dato
+menos confiable del modelo pesaba la mitad del valor total. Eliminada.
+
+**2. Faltaba la variable dura más predictiva.** Se ajustó una regresión de
+`ln(ingresos)` sobre los **4.650 prestadores que reportaron a Supersalud**, y
+`sedes` salió con la elasticidad más alta de todo el dato duro: **1,12**. Hasta
+ahora `sedes` solo existía en el CAC, como fricción — el modelo cobraba el costo
+de tener una red sin acreditarle el valor que esa red representa.
+
+El dato duro del REPS, sin la planta estimada, ya explica el **48,6 %** de la
+varianza de los ingresos reales.
+
+### Qué empuja el score hacia arriba
+
+**Del lado del valor** — un término por tramo de la escalera, ocho de los nueve
+son dato duro. El orden de los pesos sale de la regresión.
+
+| Variable | Peso | Cobertura | Por qué |
+|---|---|---|---|
+| Planta en nómina → ARL | 0,55 | 100 % | Prima del ramo de entrada. **Dato estimado**: se le da menos peso del que la estadística le daría (la regresión le asigna 0,94), porque además su correlación con ingresos es en parte circular — la planta se deriva de la nómina, que sale del mismo estado de resultados. |
+| **Sedes** | 0,45 | 100 % | **El predictor duro más fuerte.** Cada sede es un punto que asegurar. También está en el CAC: ahí cuesta, aquí vale. |
+| Salas de cirugía → RC médica | 0,35 | 10 % | Donde se opera está la severidad. |
+| Servicios de alta complejidad | 0,35 | 5 % | Segunda elasticidad más alta. |
+| Amplitud de la escalera | 0,25 | 96 % | Grupos de servicio distintos: de cuántos tramos hay materia prima. No es lo mismo que el número de servicios. |
+| Servicios habilitados | 0,20 | 96 % | Superficie total de exposición. |
+| Camas → todo riesgo | 0,15 | 15 % | Hospitalización. |
+| Ambulancias → autos | 0,12 | 23 % | Único proxy de flota propia. |
+| Consultorios → RC contratistas | 0,10 | 82 % | Puestos de profesionales, muchos contratistas. Es el proxy que antes se pretendía medir con `contratistas`. |
+| Crecimiento 19→21 | 0,30 | 34 % | Mira adelante; no estaba en la regresión. |
+
+Con estos pesos, **el dato duro del REPS aporta el 77 %** del tamaño del LTV.
+
+> Un cero en capacidad **no es dato faltante**: en el REPS la capacidad se declara,
+> así que cero camas significa que de verdad no hospitaliza.
+
+**Validación externa:** el LTV resultante correlaciona **0,718 con los ingresos
+reportados** de los 4.650 que sí reportaron — tan bien como una regresión ajustada,
+pero construido sobre dato duro y sin depender de la planta.
 
 **Del lado del esfuerzo** (bajan el score)
 
-| Variable | Peso inicial | Por qué |
+| Variable | Peso | Por qué |
 |---|---|---|
-| Interlocutores | 1,0 | Lo que más alarga un ciclo. Se estima de sedes y tamaño. |
+| Interlocutores | 1,0 | Se estima de sedes y tamaño, en log2. |
 | Dispersión geográfica | 0,9 | Departamentos: desplazamiento y distancia a quien decide. |
-| Duración del ciclo | 0,6 | Pesa menos porque el tiempo se paraleliza entre cuentas; convencer gente no. Crece con los municipios. |
+| Duración del ciclo | 0,6 | Crece con los municipios. |
 | Datos de contacto que faltan | 0,5 | Investigación previa por cada dato ausente. |
 
-Ejemplo de lo que esto cambia: **Viva 1A, con 89 sedes, saca 78,6 pese a tener el
-LTV más alto de la cartera conocida (5,11), mientras OINSAMED con 1 sede saca 85,7
-con un LTV de 3,48.** Misma lógica que usa un vendedor: la clínica concentrada es
-una victoria más barata que la red nacional.
+### Cómo se combinan: el exponente del esfuerzo
 
-**Correcciones**
+    cociente = LTV / CAC ^ exponente_cac        (hoy 1,8)
+
+Con el cociente clásico (exponente 1) el CAC correlacionaba **+0,05** con el
+resultado: **el esfuerzo subía levemente el score**, al revés de lo que debe ser.
+Pasa porque valor y esfuerzo crecen juntos (correlación 0,37) y el LTV varía 3,6
+veces más en logaritmo. Con 1,8 la correlación es **−0,18**: el esfuerzo resta sin
+dominar.
+
+El argumento de fondo no es estadístico. **La capacidad del equipo es el cuello de
+botella real** —cap. 3.4 del método: 12 cuentas A por ejecutivo— y cuando la
+restricción es capacidad, el esfuerzo debe penalizarse más que proporcionalmente.
+
+Medido moviendo ese número: con exponente 1, Viva 1A queda en el puesto 195 del
+universo; con 3 se hunde al 8.090. En 1,8 queda alrededor del 600, que es donde
+tiene sentido una cuenta valiosa pero cara de trabajar.
+
+| Cuenta | Sedes | LTV | CAC | Score |
+|---|---|---|---|---|
+| OINSAMED | 1 | 2,91 | 6,9 | **86,1** |
+| Bonnadona | 2 | 3,18 | 9,4 | **79,8** |
+| Clínica General del Norte | 29 | 4,21 | 14,1 | **73,9** |
+| Clínica General San Diego | 1 | 0,61 | 6,2 | **67,9** |
+| Viva 1A | 89 | 3,31 | 18,1 | **64,9** |
+
+**Correcciones****Correcciones**
 
 - **Piso operativo**: por debajo de 100 personas el valor se multiplica por 0,35. El
   cap. 3.2 del método descarta esas cuentas por no pagar el costo de servirlas.
@@ -152,8 +204,15 @@ media desviación:
 calibración ok · ln(cociente) observado: media -3.614, desviación 0.823
 ```
 
-Si tras un cambio grande de pesos aparece el aviso, se copian los valores
-observados a `escala.centro` y `escala.dispersion`.
+Si tras un cambio grande de pesos aparece el aviso, se corre una vez:
+
+```bash
+python src/score_icp.py --dsn "$DSN" --autocalibrar
+```
+
+y el propio script reescribe `escala.centro` y `escala.dispersion` en el JSON con
+lo observado. **Cambiar `exponente_cac` o varios pesos a la vez siempre exige
+recalibrar**, porque mueven la escala del cociente entero.
 
 ## Ver por qué una cuenta sacó ese score
 

@@ -13,7 +13,7 @@
     "  LTV  = suma(peso x variable de valor) x producto(multiplicadores)",
     "  score = ln(cociente) estandarizado y llevado a 0-100 (ver `escala`)"
   ],
-  "version": "2026-09-16-estructura",
+  "version": "2026-09-16-ltv-por-ramo",
   "_cambio_v2": [
     "La primera version medía el tamaño con una tabla de cuatro tramos de planta.",
     "Resultado medido sobre las 10.646 filas: el CAC tomaba SOLO 13 VALORES y el",
@@ -76,49 +76,76 @@
     }
   },
   "ltv": {
-    "_que_mide": "Valor de la cuenta COMPLETA a 24 meses, no solo la ARL de entrada.",
+    "_que_mide": "Valor de la cuenta COMPLETA a 24 meses. Cada termino es un tramo distinto de la escalera de cross-sell, no una repeticion del tamaño.",
     "_nota_robustez": [
-      "El valor se reparte entre cinco variables a proposito, y dos de ellas son",
-      "dato duro del REPS (capacidad instalada y servicios habilitados). Asi el",
-      "score no depende de que la planta estimada sea exacta: si esa cifra falla en",
-      "una cuenta, las otras sostienen el orden."
+      "Nueve terminos, ocho de ellos DATO DURO del REPS. Ninguno se deriva de otro.",
+      "Si la planta estimada falla en una cuenta, el resto sostiene el orden: por eso",
+      "pesa 0,55 de un total de 2,42 en los terminos de tamaño.",
+      "Cobertura de cada variable en el universo de 10.646: servicios 96 %,",
+      "consultorios 82 %, ambulancias 23 %, camas 15 %, salas de cirugia 10 %.",
+      "Un cero en capacidad NO es dato faltante: en el REPS la capacidad se declara,",
+      "asi que cero camas significa que de verdad no hospitaliza."
     ],
     "pesos": {
-      "tamano_planta": {
-        "peso": 0.9,
-        "referencia": 1000,
+      "nomina_arl": {
+        "peso": 0.55,
+        "referencia": 300,
         "exponente": 0.7,
-        "_nota": "Planta en nomina, base de la prima de ARL. DATO ESTIMADO: por eso pesa menos que en la version anterior y no va solo."
+        "_nota": "Planta en nomina -> prima de ARL, el ramo de entrada. DATO ESTIMADO: se le da menos peso del que la regresion le daria, a proposito."
       },
-      "contratistas": {
-        "peso": 1.2,
-        "referencia": 3000,
+      "sedes": {
+        "peso": 0.45,
+        "referencia": 15,
         "exponente": 0.7,
-        "_nota": "Brecha entre fuerza laboral y nomina propia: volumen de medicos contratistas, que es el ancla real de retencion. Sigue siendo el peso mas alto."
+        "_nota": "DATO DURO. El predictor de ingresos mas fuerte del REPS (elasticidad 1,12). Cada sede es un punto que asegurar: todo riesgo, RC extracontractual, contenidos. Tambien esta en el CAC como friccion; ahi cuesta, aqui vale."
       },
-      "capacidad_instalada": {
-        "peso": 0.8,
-        "referencia": 250,
+      "salas_cirugia": {
+        "peso": 0.35,
+        "referencia": 6,
         "exponente": 0.7,
-        "componentes": {
-          "camas": 3,
-          "salas_cirugia": 5,
-          "consultorios": 1,
-          "ambulancias": 2
-        },
-        "_nota": "DATO DURO. Indice ponderado: una sala de cirugia expone mucho mas que un consultorio. Es el proxy de prima de RC medica, todo riesgo y autos."
+        "_nota": "DATO DURO. Proxy directo de prima de RC medica: donde se opera esta la severidad."
       },
-      "servicios_habilitados": {
-        "peso": 0.6,
-        "referencia": 80,
+      "complejidad_alta": {
+        "peso": 0.35,
+        "referencia": 8,
         "exponente": 0.7,
-        "_nota": "DATO DURO. Superficie de cross-sell: cada servicio habilitado es exposicion que alguien tiene que amparar."
+        "_nota": "DATO DURO. Numero de servicios declarados de alta complejidad. Segunda elasticidad mas alta de la regresion."
+      },
+      "amplitud_escalera": {
+        "peso": 0.25,
+        "referencia": 5,
+        "exponente": 0.7,
+        "_nota": "DATO DURO. Grupos de servicio distintos (internacion, quirurgicos, apoyo diagnostico, consulta externa, atencion inmediata, transporte). Mide de cuantos tramos de la escalera de cross-sell hay materia prima, que no es lo mismo que el numero de servicios."
+      },
+      "servicios": {
+        "peso": 0.2,
+        "referencia": 150,
+        "exponente": 0.7,
+        "_nota": "DATO DURO, 96 % de cobertura. Superficie total de exposicion."
+      },
+      "camas": {
+        "peso": 0.15,
+        "referencia": 200,
+        "exponente": 0.7,
+        "_nota": "DATO DURO. Hospitalizacion: todo riesgo y severidad de RC."
+      },
+      "ambulancias": {
+        "peso": 0.12,
+        "referencia": 8,
+        "exponente": 0.7,
+        "_nota": "DATO DURO. Unico proxy de flota propia que hay: colectivo de autos."
+      },
+      "consultorios": {
+        "peso": 0.1,
+        "referencia": 90,
+        "exponente": 0.7,
+        "_nota": "DATO DURO, 82 % de cobertura. Puestos de trabajo de profesionales, muchos de ellos contratistas: es el proxy del ancla de RC de contratistas que antes se pretendia medir con 'contratistas'."
       },
       "crecimiento": {
-        "peso": 0.6,
+        "peso": 0.3,
         "piso_pct": -25,
         "techo_pct": 100,
-        "_nota": "Crecimiento 2019-2021. Sin serie comparable se usa el neutro de abajo."
+        "_nota": "Crecimiento 2019-2021. No estaba en la regresion: mira hacia adelante, no hacia el presente."
       }
     },
     "neutro_sin_crecimiento": 0.4,
@@ -152,8 +179,8 @@
   },
   "escala": {
     "modo": "z_log",
-    "centro": -3.614,
-    "dispersion": 0.823,
+    "centro": -5.142,
+    "dispersion": 0.759,
     "puntos_por_sigma": 10,
     "centro_score": 50,
     "referencia_ratio": 0.175,
@@ -178,12 +205,41 @@
       "imprimen los valores observados: si se alejan mucho de los de aquí, conviene",
       "actualizarlos. Dejarlos fijos es lo que permite que mover un peso suba o baje",
       "el score de verdad, en vez de recentrarlo todo cada vez.",
-      "puntos_por_sigma=10 (no 15): con 15 el mejor cociente quedaba 3,9 sigmas arriba y 80 de las 249 cuentas del grupo de trabajo se pegaban al techo de 100. Con 10, el rango observado (-4,8 a +3,9 sigmas) cabe entero entre 2 y 89 sin recortar ni una."
-    ]
+      "puntos_por_sigma=10 (no 15): con 15 el mejor cociente quedaba 3,9 sigmas arriba y 80 de las 249 cuentas del grupo de trabajo se pegaban al techo de 100. Con 10, el rango observado (-4,8 a +3,9 sigmas) cabe entero entre 2 y 89 sin recortar ni una.",
+      "exponente_cac = 1,8. El cociente es LTV / CAC^exponente_cac. Con exponente 1 (cociente clasico) el CAC correlacionaba +0,05 con el resultado: el esfuerzo SUBIA levemente el score, al reves de lo que debe. Pasa porque valor y esfuerzo crecen juntos (correlacion 0,37) y el LTV varia 3,6 veces mas en logaritmo. Con 1,8 la correlacion es -0,15: el esfuerzo resta, sin dominar. El argumento de fondo no es estadistico: la capacidad del equipo es el cuello de botella real (cap. 3.4 del metodo: 12 cuentas A por ejecutivo), y cuando la restriccion es capacidad, el esfuerzo debe penalizarse mas que proporcionalmente. Medido al mover este numero: en 1 Viva 1A queda en el puesto 195 y en 3 se hunde al 8.090. En 1,8 queda en ~600, que es donde tiene sentido una cuenta valiosa pero cara de trabajar."
+    ],
+    "exponente_cac": 1.8
   },
   "umbrales": {
-    "alta": 63,
-    "media": 54,
-    "_nota": "Con la escala z_log y 10 puntos por sigma: 63 es 1,3 desviaciones sobre el promedio (cerca del 10 % mejor) y 54 es 0,4 desviaciones (cerca del 35 %). Si el equipo no alcanza a trabajar la lista de alta, se sube el umbral; no hay que tocar ningún peso."
-  }
+    "alta": 61,
+    "media": 53,
+    "_nota": "Con la escala z_log y 10 puntos por sigma: 61 es ~1,1 desviaciones sobre el promedio y 53 es ~0,3. Ajustados contra la distribucion que producen los pesos de la v3 para dejar cerca de 10 % en alta y 25 % en media. Si el equipo no alcanza a trabajar la lista de alta, se sube el umbral; no se tocan pesos."
+  },
+  "_cambio_v3": [
+    "Auditoría del LTV, medida sobre los datos:",
+    "",
+    "1. 'contratistas' era la MISMA variable que 'planta'. fuerza_laboral_alto se",
+    "   calcula como planta x 5,24 (factor fijo de tercerizacion), asi que",
+    "   contratistas = planta x 4,24 y la correlacion entre ambas era 1,0000 exacta.",
+    "   Eran los dos pesos mas altos del LTV: la planta estimada, el dato menos",
+    "   confiable, estaba contada dos veces y valia la mitad del valor total.",
+    "",
+    "2. Faltaba la variable dura mas predictiva. Una regresion de ln(ingresos)",
+    "   sobre 4.650 prestadores que reportaron a Supersalud da a `sedes` una",
+    "   elasticidad de 1,12, la mas alta de todo el dato duro. Y `sedes` solo",
+    "   aparecia en el CAC, como friccion: el modelo cobraba el costo de una red",
+    "   sin acreditarle el valor que esa red representa.",
+    "",
+    "3. El dato duro del REPS por si solo explica el 48,6 % de la varianza de los",
+    "   ingresos reportados. No hace falta apoyarse en la planta estimada.",
+    "",
+    "Los pesos de abajo salen del orden de esa regresion (columna 'todo junto',",
+    "que controla por planta): sedes 0,32 > compl_alta 0,24 > salas 0,23 >",
+    "grupos 0,16 > servicios 0,12 > camas 0,06 > ambulancias 0,06.",
+    "A la planta se le da MENOS peso del que la estadistica le daria (la regresion",
+    "le asigna 0,94) por dos razones: es el dato menos confiable, y su correlacion",
+    "con los ingresos es en parte circular porque se deriva de la nomina, que sale",
+    "del mismo estado de resultados. Con estos pesos el dato duro del REPS aporta",
+    "el 77 % del tamaño del LTV."
+  ]
 }

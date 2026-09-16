@@ -38,6 +38,14 @@ WITH sede_ref AS (
   SELECT prestador_id, max(representante_legal) rep, max(telefono) tel,
          max(email) mail, max(nivel_atencion) nivel
   FROM reps.registro_habilitacion GROUP BY prestador_id
+), amplitud AS (
+  -- Insumos del score que el navegador necesita para recalcular con los sliders.
+  SELECT r.prestador_id, count(DISTINCT sv.grupo_nombre) grupos,
+         count(*) FILTER (WHERE sv.complejidad_alta) compl_alta
+  FROM reps.sede_servicio sv
+  JOIN reps.sede s ON s.id = sv.sede_id
+  JOIN reps.registro_habilitacion r ON r.id = s.registro_id
+  GROUP BY 1
 ), nuevos AS (
   SELECT r.prestador_id, count(*) n
   FROM reps.sede_servicio sv
@@ -63,7 +71,8 @@ SELECT p.numero_identificacion, p.digito_verificacion, p.razon_social,
        -- Insumos crudos del score, para que el panel de pesos pueda recalcular
        -- en el navegador sin volver a consultar la base.
        (jsonb_array_length(sc.desglose->'multiplicadores'->'senales_alto_riesgo') > 0)::int senal_riesgo,
-       (sc.desglose->'multiplicadores'->>'deterioro_financiero')::numeric deterioro
+       (sc.desglose->'multiplicadores'->>'deterioro_financiero')::numeric deterioro,
+       coalesce(am.grupos, 0), coalesce(am.compl_alta, 0)
 FROM reps.prestador p
 JOIN reps.v_prestador_completo v ON v.id = p.id
 LEFT JOIN sede_ref sr ON sr.prestador_id = p.id
@@ -72,6 +81,7 @@ LEFT JOIN contacto c  ON c.prestador_id = p.id
 LEFT JOIN nuevos nv   ON nv.prestador_id = p.id
 LEFT JOIN reps.estimacion_personal e ON e.prestador_id = p.id
 LEFT JOIN reps.score_icp sc ON sc.prestador_id = p.id
+LEFT JOIN amplitud am ON am.prestador_id = p.id
 WHERE p.clase_prestador <> 'Profesional Independiente'
 ORDER BY coalesce(sc.score, -1) DESC
 """
@@ -83,7 +93,8 @@ COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
         "planta", "fl_bajo", "fl_alto", "metodo",
         "planta_2019", "planta_2021", "crecimiento", "tendencia", "delta_personas",
         "ingresos_mm", "activos_mm", "serv_nuevos_12m", "deps", "muns",
-        "score", "prioridad", "ltv", "cac", "senal_riesgo", "deterioro"]
+        "score", "prioridad", "ltv", "cac", "senal_riesgo", "deterioro",
+        "grupos", "compl_alta"]
 
 
 def main() -> int:
