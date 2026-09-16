@@ -18,6 +18,7 @@ modelado y trazable.
 | `sede_servicio` | 228.039 | un servicio habilitado por sede |
 | `sede_capacidad` | 97.549 | un concepto de capacidad por sede |
 | `prestador_financiero` | 6.634 | un NIT por vigencia y origen |
+| `estimacion_personal` | 10.646 | trabajadores estimados, con método y banda |
 
 De las 57.663 entidades, **8.972 son IPS**; el resto son profesionales
 independientes, objeto social diferente y transporte especial de pacientes.
@@ -58,7 +59,9 @@ src/extract_supersalud.py estados financieros 2021
 src/schema.sql            DDL comentado con las decisiones de modelado
 src/load.py               parseo, deduplicación, QA y carga de REPS
 src/load_supersalud.py    carga financiera y cruce por NIT
+src/estimar_personal.py   estimación de trabajadores (nómina + capacidad)
 src/report.py             reporte de volúmenes, cruce, calidad y limitaciones
+tablero/index.html        tablero de filtrado y exportación a CSV
 docs/00-fuentes.md        qué se verificó de cada fuente y qué no existe
 docs/reporte.md           salida del último run
 ```
@@ -69,9 +72,52 @@ docs/reporte.md           salida del último run
   abierto `c36g-9fc2` tiene corte de marzo de 2026 y no expone servicios,
   capacidad instalada, representante legal ni fechas de habilitación.
 - **`numero_empleados` está vacío a propósito.** Ninguna fuente pública lo
-  publica por institución. El proxy de tamaño es `sede_capacidad.cantidad`.
+  publica por institución. El dato observado no se mezcla con el derivado: la
+  estimación vive en la tabla aparte `estimacion_personal`.
 - **Supersalud llega hasta 2021.** Es lo último que publicó la entidad.
 - **Ninguna fila del REPS se descarta por no tener financiero.**
 
 Detalle completo de fuentes, trampas del portal y limitaciones en
 [`docs/00-fuentes.md`](docs/00-fuentes.md) y [`docs/reporte.md`](docs/reporte.md).
+
+
+## Estimación de trabajadores
+
+`prestador.numero_empleados` sigue NULL porque ninguna fuente lo publica. Aparte,
+`reps.estimacion_personal` guarda un número **derivado** con su método y su banda.
+
+**Método nómina** (4.061 prestadores, confianza media). El gasto de nómina de los
+estados financieros 2021 dividido por el costo anual por trabajador. Ese costo se
+calibra, no se inventa: SIHO publica la planta nacional de las ESE para 2021
+(48.671 personas) y los mismos estados financieros dan su nómina agregada
+($1,047 billones). El cociente es **$21.520.000 por persona/año**, ~1,97 SMMLV de
+2021 contando carga prestacional — coherente con una planta pública.
+
+**Método capacidad** (6.585 prestadores, confianza baja). Regresión no negativa
+sobre camas, salas, sedes y ambulancias, ajustada contra las estimaciones de
+nómina. Sin intercepto y solo sobre IPS: con intercepto le asignaba ~7
+trabajadores de base a cualquier consultorio. R² de 0,42 en holdout.
+
+**A los 46.987 profesionales independientes no se les estima.** Son personas
+naturales; la ausencia de fila significa "no estimable", no cero.
+
+### Lo que el número mide y lo que no
+
+Mide **planta formal en nómina**. Contra 47 IPS de la Costa con conteo conocido,
+la fuerza laboral real resultó ×3 la planta en mediana, con cuartiles en ×1,25 y
+×5,24 y extremos de ×0,04 a ×47 — por eso `fuerza_laboral_bajo/alto` es banda.
+
+La brecha es tercerización, y no es ruido: en salud una parte grande del personal
+entra por prestación de servicios o por bolsas de empleo. **Para ARL las dos
+cifras son dos clientes distintos**: la planta en nómina la afilia la IPS; a los
+tercerizados los afilia la bolsa que los contrata.
+
+## Tablero
+
+`tablero/index.html` + `tablero/datos.js` (generado, no versionado). Filtra por
+geografía —por presencia real, no por sede principal—, capacidad, tamaño estimado
+y señales como "habilitó servicio nuevo en 12 meses", y exporta a CSV con
+separador `;` y BOM para que Excel en español respete los acentos.
+
+Para regenerar los datos del tablero, ver la consulta en el historial de
+`data/tablero_ips.json`.
