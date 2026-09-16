@@ -114,10 +114,23 @@ tercerizados los afilia la bolsa que los contrata.
 
 ## Tablero
 
+**En vivo: https://juannavia-byte.github.io/reps-ips-colombia/**
+
+Se republica con `./deploy_pages.sh` (regenera los datos y empuja la rama
+`gh-pages`). También queda `dist/tablero.html`, un archivo único de ~3 MB que
+funciona con doble clic, sin servidor ni internet.
+
+
 `tablero/index.html` + `tablero/datos.js` (generado, no versionado). Filtra por
 geografía —por presencia real, no por sede principal—, capacidad, tamaño estimado
 y señales como "habilitó servicio nuevo en 12 meses", y exporta a CSV con
 separador `;` y BOM para que Excel en español respete los acentos.
 
-Para regenerar los datos del tablero, ver la consulta en el historial de
-`data/tablero_ips.json`.
+Se regenera con `python src/build_tablero.py --dsn "$DSN"`.
+
+## Llevar la base a Supabase
+
+    SUPABASE_DSN='postgresql://postgres:CLAVE@db.XXXX.supabase.co:5432/postgres' ./push_supabase.sh
+
+Usa la conexión **directa** (puerto 5432), no el pooler de transacciones (6543):
+`pg_restore` necesita sesión y el pooler la corta.
