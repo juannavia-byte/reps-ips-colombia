@@ -41,7 +41,15 @@ WITH sede_ref AS (
 ), amplitud AS (
   -- Insumos del score que el navegador necesita para recalcular con los sliders.
   SELECT r.prestador_id, count(DISTINCT sv.grupo_nombre) grupos,
-         count(*) FILTER (WHERE sv.complejidad_alta) compl_alta
+         count(*) FILTER (WHERE sv.complejidad_alta) compl_alta,
+         bool_or(sv.servicio_nombre ILIKE '%IMAGEN%' OR sv.servicio_nombre ILIKE '%RADIOLOG%'
+              OR sv.servicio_nombre ILIKE '%RESONANCIA%' OR sv.servicio_nombre ILIKE '%TOMOGRAF%')::int imagen,
+         bool_or(sv.servicio_nombre ILIKE '%LABORATORIO%')::int labo,
+         bool_or(sv.servicio_nombre ILIKE '%FARMAC%' OR sv.servicio_nombre ILIKE '%MEDICAMENT%')::int farma,
+         bool_or(sv.servicio_nombre ILIKE '%DIALISIS%' OR sv.servicio_nombre ILIKE '%DIÁLISIS%'
+              OR sv.servicio_nombre ILIKE '%QUIMIOTERAP%' OR sv.servicio_nombre ILIKE '%RADIOTERAP%')::int altocosto,
+         bool_or(sv.grupo_nombre='Internación')::int intern,
+         bool_or(sv.grupo_nombre='Atención Inmediata')::int urg
   FROM reps.sede_servicio sv
   JOIN reps.sede s ON s.id = sv.sede_id
   JOIN reps.registro_habilitacion r ON r.id = s.registro_id
@@ -72,7 +80,14 @@ SELECT p.numero_identificacion, p.digito_verificacion, p.razon_social,
        -- en el navegador sin volver a consultar la base.
        (jsonb_array_length(sc.desglose->'multiplicadores'->'senales_alto_riesgo') > 0)::int senal_riesgo,
        (sc.desglose->'multiplicadores'->>'deterioro_financiero')::numeric deterioro,
-       coalesce(am.grupos, 0), coalesce(am.compl_alta, 0)
+       coalesce(am.grupos, 0), coalesce(am.compl_alta, 0),
+       coalesce(am.imagen,0), coalesce(am.labo,0), coalesce(am.farma,0),
+       coalesce(am.altocosto,0), coalesce(am.intern,0), coalesce(am.urg,0),
+       (p.naturaleza_juridica='Pública')::int,
+       coalesce((SELECT sum(c.cantidad) FROM reps.sede_capacidad c
+                 JOIN reps.sede sd ON sd.id=c.sede_id
+                 JOIN reps.registro_habilitacion rr ON rr.id=sd.registro_id
+                 WHERE rr.prestador_id=p.id AND c.concepto_nombre ILIKE 'Intensiva%'),0)
 FROM reps.prestador p
 JOIN reps.v_prestador_completo v ON v.id = p.id
 LEFT JOIN sede_ref sr ON sr.prestador_id = p.id
@@ -94,7 +109,8 @@ COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
         "planta_2019", "planta_2021", "crecimiento", "tendencia", "delta_personas",
         "ingresos_mm", "activos_mm", "serv_nuevos_12m", "deps", "muns",
         "score", "prioridad", "ltv", "cac", "senal_riesgo", "deterioro",
-        "grupos", "compl_alta"]
+        "grupos", "compl_alta", "imagenologia", "laboratorio", "farmacia",
+        "alto_costo", "internacion", "urgencias", "es_publica", "camas_uci"]
 
 
 def main() -> int:

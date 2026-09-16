@@ -664,7 +664,7 @@
 
   function calcRatio(r, cfg){
     var pc = cfg.cac.pesos, esc = cfg.cac.estructura;
-    var pl = cfg.ltv.pesos, mult = cfg.ltv.multiplicadores;
+    var mult = cfg.ltv.multiplicadores;
     var esEse = r[C.ese] === 1;
 
     // CAC sobre ESTRUCTURA, no sobre tramos de planta. La versión anterior
@@ -688,27 +688,37 @@
       + pc.dispersion_geografica.peso * log2p(deptos)
       + pc.perfilamiento_faltante.peso * faltan;
 
-    // Un término por tramo de la escalera de cross-sell. Se quitó "contratistas":
-    // era planta x 4,24, con correlación 1,0000 contra planta.
-    var VALORES = {
-      nomina_arl: planta,
-      sedes: r[C.sedes] || 1,
-      salas_cirugia: r[C.salas_cirugia] || 0,
-      complejidad_alta: r[C.compl_alta] || 0,
-      amplitud_escalera: r[C.grupos] || 0,
-      servicios: r[C.servicios] || 0,
-      camas: r[C.camas] || 0,
-      ambulancias: r[C.ambulancias] || 0,
-      consultorios: r[C.consultorios] || 0
+    // LTV = comisión esperada de la escalera completa de ramos a 24 meses.
+    // Por ramo: valor_relativo x probabilidad x norm(exposición).
+    var VARIABLES = {
+      planta: planta, sedes: sedes, camas: r[C.camas] || 0,
+      camas_uci: r[C.camas_uci] || 0, salas_cirugia: r[C.salas_cirugia] || 0,
+      consultorios: r[C.consultorios] || 0, ambulancias: r[C.ambulancias] || 0,
+      servicios: r[C.servicios] || 0, grupos: r[C.grupos] || 0,
+      compl_alta: r[C.compl_alta] || 0, serv_nuevos: r[C.serv_nuevos_12m] || 0,
+      imagenologia: r[C.imagenologia] || 0, laboratorio: r[C.laboratorio] || 0,
+      farmacia: r[C.farmacia] || 0, alto_costo: r[C.alto_costo] || 0,
+      internacion: r[C.internacion] || 0, urgencias: r[C.urgencias] || 0,
+      es_publica: r[C.es_publica] || 0
     };
+    function valorRamo(c){
+      var expo = 0;
+      for(var v in c.exposicion) expo += (VARIABLES[v] || 0) * c.exposicion[v];
+      return c.valor_relativo * c.probabilidad_24m * normPot(expo, c.referencia, c.exponente);
+    }
+    var subtotal = 0;
+    ["corporativos", "personas"].forEach(function(g){
+      var pesoG = cfg.ltv.peso_grupo[g === "corporativos" ? "corporativo" : "personas"];
+      var t = 0;
+      for(var nombre in cfg.ltv[g]) t += valorRamo(cfg.ltv[g][nombre]);
+      subtotal += pesoG * t;
+    });
+
+    var cc = cfg.ltv.crecimiento;
     var crec = r[C.crecimiento];
     var nCrec = (crec == null) ? cfg.ltv.neutro_sin_crecimiento
-      : normLin(crec, pl.crecimiento.piso_pct, pl.crecimiento.techo_pct);
-
-    var base = pl.crecimiento.peso * nCrec;
-    for(var k in VALORES){
-      if(pl[k]) base += pl[k].peso * normPot(VALORES[k], pl[k].referencia, pl[k].exponente);
-    }
+      : normLin(crec, cc.piso_pct, cc.techo_pct);
+    var base = subtotal * (1 + cc.peso * (nCrec - cfg.ltv.neutro_sin_crecimiento));
 
     var tipo = esEse ? "ese"
       : r[C.clase] === "Obje" ? "objeto_social_distinto"
@@ -794,27 +804,26 @@
      d: "Cuánto suma cada duplicación de sedes al número de personas a convencer."},
     {ruta: "cac.estructura.c_dispersion", t: "Municipios → ciclo", max: 2,
      d: "Cuánto alarga el ciclo operar en más ciudades."},
-    {g: "LTV · valor a 24 meses"},
-    {ruta: "ltv.pesos.nomina_arl.peso", t: "Planta en nómina → ARL", max: 2,
-     d: "Dato estimado: por eso pesa menos de lo que la regresión le daría."},
-    {ruta: "ltv.pesos.sedes.peso", t: "Sedes", max: 2,
-     d: "Dato duro. El predictor de ingresos más fuerte del REPS."},
-    {ruta: "ltv.pesos.salas_cirugia.peso", t: "Salas de cirugía → RC médica", max: 2,
-     d: "Dato duro. Donde se opera está la severidad."},
-    {ruta: "ltv.pesos.complejidad_alta.peso", t: "Servicios de alta complejidad", max: 2,
-     d: "Dato duro. Segunda elasticidad más alta de la regresión."},
-    {ruta: "ltv.pesos.amplitud_escalera.peso", t: "Amplitud de la escalera", max: 2,
-     d: "Dato duro. Grupos de servicio distintos: de cuántos tramos hay materia prima."},
-    {ruta: "ltv.pesos.servicios.peso", t: "Servicios habilitados", max: 2,
-     d: "Dato duro con 96 % de cobertura."},
-    {ruta: "ltv.pesos.camas.peso", t: "Camas → todo riesgo", max: 2,
-     d: "Dato duro. Hospitalización."},
-    {ruta: "ltv.pesos.ambulancias.peso", t: "Ambulancias → autos", max: 2,
-     d: "Dato duro. Único proxy de flota propia."},
-    {ruta: "ltv.pesos.consultorios.peso", t: "Consultorios → RC contratistas", max: 2,
-     d: "Dato duro. Puestos de profesionales, muchos contratistas."},
-    {ruta: "ltv.pesos.crecimiento.peso", t: "Crecimiento 19→21", max: 2,
-     d: "Recorrido de cross-sell hacia adelante."},
+    {g: "LTV · qué tipo de seguro pesa"},
+    {ruta: "ltv.peso_grupo.corporativo", t: "Seguros corporativos", max: 2,
+     d: "RC médica, todo riesgo, cumplimiento, equipo biomédico, flota… El negocio principal."},
+    {ruta: "ltv.peso_grupo.personas", t: "Seguros de personal", max: 2,
+     d: "ARL, vida grupo, salud colectiva, exequias. Van en segundo nivel."},
+    {g: "LTV · ramos corporativos principales"},
+    {ruta: "ltv.corporativos.rc_medica_institucional.valor_relativo", t: "RC médica institucional", max: 150, paso: 5, ent: true,
+     d: "Comisión anual esperada, escala relativa. El ramo más grande de una IPS con quirófano."},
+    {ruta: "ltv.corporativos.todo_riesgo_danos.valor_relativo", t: "Todo riesgo daños", max: 150, paso: 5, ent: true,
+     d: "Edificios y contenidos. Incluye terremoto."},
+    {ruta: "ltv.corporativos.rc_contratistas.valor_relativo", t: "RC contratistas (ancla)", max: 150, paso: 5, ent: true,
+     d: "Prima unitaria baja, volumen alto y probabilidad 0,80: se activa en el onboarding."},
+    {ruta: "ltv.corporativos.cumplimiento.valor_relativo", t: "Cumplimiento", max: 150, paso: 5, ent: true,
+     d: "Garantía única y contratos con EPS y entes territoriales."},
+    {ruta: "ltv.corporativos.equipo_biomedico.valor_relativo", t: "Equipo biomédico", max: 150, paso: 5, ent: true,
+     d: "Imagenología es el mejor indicador: resonancia y tomografía."},
+    {ruta: "ltv.personas.arl.valor_relativo", t: "ARL", max: 150, paso: 5, ent: true,
+     d: "Producto de entrada. Prima alta, comisión baja."},
+    {ruta: "ltv.crecimiento.peso", t: "Crecimiento 19→21", max: 2,
+     d: "Multiplica el total: quien crece tendrá más de todo en 24 meses."},
     {g: "Cómo se combinan"},
     {ruta: "escala.exponente_cac", t: "Cuánto pesa el esfuerzo", min: 0.5, max: 3,
      d: "LTV ÷ CAC elevado a este número. En 1 el esfuerzo casi no cuenta; subirlo castiga las cuentas difíciles."},

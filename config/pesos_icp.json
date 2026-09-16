@@ -13,7 +13,7 @@
     "  LTV  = suma(peso x variable de valor) x producto(multiplicadores)",
     "  score = ln(cociente) estandarizado y llevado a 0-100 (ver `escala`)"
   ],
-  "version": "2026-09-16-ltv-por-ramo",
+  "version": "2026-09-16-prima-por-ramo",
   "_cambio_v2": [
     "La primera version medía el tamaño con una tabla de cuatro tramos de planta.",
     "Resultado medido sobre las 10.646 filas: el CAC tomaba SOLO 13 VALORES y el",
@@ -60,10 +60,12 @@
         "",
         "  interlocutores = 1 + k_sedes*log2(1+sedes) + k_tamano*log2(1+planta/ancla)",
         "  ciclo          = ciclo_base + c_dispersion*log2(1+municipios)",
-        "                              + c_tamano*log2(1+planta/ancla)"
+        "                              + c_tamano*log2(1+planta/ancla)",
+        "",
+        "k_sedes bajo de 0,9 a 0,35 en la v4. Razon: `sedes` entro al LTV como valor, y tenerla pesando fuerte tambien como friccion hacia que valor y esfuerzo se pelearan al dividir (su correlacion subio a 0,54). Y el argumento comercial apunta igual: negociar con una red de 29 sedes en UNA ciudad es una sola negociacion. Lo que de verdad cuesta no es el numero de sedes sino la DISPERSION —municipios y departamentos— y el gobierno corporativo. Las sedes siguen sumando coordinacion, pero poco."
       ],
       "ancla_planta": 50,
-      "k_sedes": 0.9,
+      "k_sedes": 0.35,
       "k_tamano": 0.7,
       "ciclo_base": 1.0,
       "c_dispersion": 0.8,
@@ -76,77 +78,314 @@
     }
   },
   "ltv": {
-    "_que_mide": "Valor de la cuenta COMPLETA a 24 meses. Cada termino es un tramo distinto de la escalera de cross-sell, no una repeticion del tamaño.",
-    "_nota_robustez": [
-      "Nueve terminos, ocho de ellos DATO DURO del REPS. Ninguno se deriva de otro.",
-      "Si la planta estimada falla en una cuenta, el resto sostiene el orden: por eso",
-      "pesa 0,55 de un total de 2,42 en los terminos de tamaño.",
-      "Cobertura de cada variable en el universo de 10.646: servicios 96 %,",
-      "consultorios 82 %, ambulancias 23 %, camas 15 %, salas de cirugia 10 %.",
-      "Un cero en capacidad NO es dato faltante: en el REPS la capacidad se declara,",
-      "asi que cero camas significa que de verdad no hospitaliza."
+    "_que_mide": "Comision esperada de la escalera completa de ramos a 24 meses.",
+    "_como_funciona": [
+      "Por cada ramo:  aporte = valor_relativo x probabilidad_24m x norm(exposicion)",
+      "  valor_relativo    comision anual esperada, escala 0-100 relativa entre ramos",
+      "  probabilidad_24m  P(el ramo este activo a 24 meses | ganamos la cuenta)",
+      "  exposicion        suma ponderada de variables medibles, normalizada por",
+      "                    (valor/referencia)^exponente",
+      "El total se reparte entre dos grupos con su propio peso global, para poder",
+      "inclinar la balanza entre corporativo y personas sin tocar ramo por ramo."
     ],
-    "pesos": {
-      "nomina_arl": {
-        "peso": 0.55,
-        "referencia": 300,
+    "peso_grupo": {
+      "corporativo": 1.0,
+      "personas": 0.35,
+      "_nota": "El negocio principal con una IPS es el seguro corporativo; las polizas de personal van despues. Subir 'personas' hacia 1 iguala los dos bloques."
+    },
+    "corporativos": {
+      "rc_medica_institucional": {
+        "valor_relativo": 100,
+        "probabilidad_24m": 0.35,
+        "referencia": 40,
         "exponente": 0.7,
-        "_nota": "Planta en nomina -> prima de ARL, el ramo de entrada. DATO ESTIMADO: se le da menos peso del que la regresion le daria, a proposito."
+        "exposicion": {
+          "salas_cirugia": 5,
+          "camas": 0.5,
+          "compl_alta": 3,
+          "internacion": 8
+        },
+        "_nota": "RC profesional de clinicas y hospitales. El ramo corporativo mas grande de una IPS con quirofano."
       },
-      "sedes": {
-        "peso": 0.45,
+      "todo_riesgo_danos": {
+        "valor_relativo": 85,
+        "probabilidad_24m": 0.25,
+        "referencia": 60,
+        "exponente": 0.7,
+        "exposicion": {
+          "sedes": 4,
+          "camas": 0.4,
+          "salas_cirugia": 3,
+          "consultorios": 0.3
+        },
+        "_nota": "Edificios y contenidos. Incluye el amparo de terremoto, que no se modela aparte porque se coloca dentro de la misma poliza."
+      },
+      "cumplimiento": {
+        "valor_relativo": 55,
+        "probabilidad_24m": 0.45,
+        "referencia": 12,
+        "exponente": 0.7,
+        "exposicion": {
+          "es_publica": 8,
+          "sedes": 0.6,
+          "internacion": 3
+        },
+        "_nota": "Garantia unica y cumplimiento de contratos con EPS y entes territoriales. La exposicion se aproxima por naturaleza publica y tamano: no hay dato de contratos en el REPS."
+      },
+      "equipo_biomedico": {
+        "valor_relativo": 45,
+        "probabilidad_24m": 0.22,
+        "referencia": 25,
+        "exponente": 0.7,
+        "exposicion": {
+          "imagenologia": 10,
+          "salas_cirugia": 3,
+          "camas_uci": 1.5,
+          "alto_costo": 6
+        },
+        "_nota": "Equipo electronico y biomedico. La imagenologia es el mejor indicador: resonancia y tomografia son los activos moviles mas caros de una IPS."
+      },
+      "rc_contratistas": {
+        "valor_relativo": 40,
+        "probabilidad_24m": 0.8,
+        "referencia": 120,
+        "exponente": 0.7,
+        "exposicion": {
+          "consultorios": 1,
+          "servicios": 0.4
+        },
+        "_nota": "EL ANCLA. Prima unitaria baja pero volumen alto y probabilidad altisima: se activa en el onboarding y da acceso a la lista completa de medicos contratistas."
+      },
+      "rc_extracontractual": {
+        "valor_relativo": 30,
+        "probabilidad_24m": 0.35,
+        "referencia": 40,
+        "exponente": 0.7,
+        "exposicion": {
+          "sedes": 3,
+          "urgencias": 5,
+          "consultorios": 0.4
+        },
+        "_nota": "Predios, labores y operaciones. Escala con afluencia de publico: urgencias y consulta externa."
+      },
+      "autos_flota": {
+        "valor_relativo": 30,
+        "probabilidad_24m": 0.15,
+        "referencia": 8,
+        "exponente": 0.7,
+        "exposicion": {
+          "ambulancias": 1
+        },
+        "_nota": "Flota institucional. En una IPS es casi toda ambulancias, que varias companias declinan o recargan por riesgo agravado."
+      },
+      "manejo_infidelidad": {
+        "valor_relativo": 25,
+        "probabilidad_24m": 0.3,
+        "referencia": 30,
+        "exponente": 0.7,
+        "exposicion": {
+          "sedes": 2,
+          "farmacia": 5,
+          "alto_costo": 5
+        },
+        "_nota": "Manejo global e infidelidad. Sube donde hay farmacia y medicamentos de alto costo, que es lo que se sustrae."
+      },
+      "lucro_cesante": {
+        "valor_relativo": 25,
+        "probabilidad_24m": 0.12,
+        "referencia": 40,
+        "exponente": 0.7,
+        "exposicion": {
+          "camas": 0.5,
+          "salas_cirugia": 4,
+          "internacion": 6
+        },
+        "_nota": "Perdida de beneficio bruto por interrupcion. Si se cae el quirofano se cae la habilitacion del servicio y con ella el contrato con la EPS."
+      },
+      "rc_profesional_individual": {
+        "valor_relativo": 25,
+        "probabilidad_24m": 0.4,
+        "referencia": 80,
+        "exponente": 0.7,
+        "exposicion": {
+          "consultorios": 1,
+          "servicios": 0.2
+        },
+        "_nota": "Poliza por profesional. Se dispara con cada contratacion, no con una fecha."
+      },
+      "ciberseguro": {
+        "valor_relativo": 20,
+        "probabilidad_24m": 0.2,
+        "referencia": 100,
+        "exponente": 0.7,
+        "exposicion": {
+          "servicios": 0.6,
+          "sedes": 2,
+          "imagenologia": 4
+        },
+        "_nota": "La historia clinica es dato sensible bajo la Ley 1581. Exposicion ante SIC y Supersalud."
+      },
+      "transporte_mercancias": {
+        "valor_relativo": 15,
+        "probabilidad_24m": 0.15,
         "referencia": 15,
         "exponente": 0.7,
-        "_nota": "DATO DURO. El predictor de ingresos mas fuerte del REPS (elasticidad 1,12). Cada sede es un punto que asegurar: todo riesgo, RC extracontractual, contenidos. Tambien esta en el CAC como friccion; ahi cuesta, aqui vale."
+        "exposicion": {
+          "laboratorio": 4,
+          "farmacia": 4,
+          "alto_costo": 6
+        },
+        "_nota": "Cadena de frio: medicamentos biologicos, muestras, reactivos."
       },
-      "salas_cirugia": {
-        "peso": 0.35,
+      "rc_ambiental": {
+        "valor_relativo": 15,
+        "probabilidad_24m": 0.4,
+        "referencia": 15,
+        "exponente": 0.7,
+        "exposicion": {
+          "salas_cirugia": 3,
+          "laboratorio": 4,
+          "alto_costo": 5,
+          "internacion": 3
+        },
+        "_nota": "Residuos hospitalarios peligrosos (RESPEL). Todo servicio que genera cortopunzante o citotoxico."
+      },
+      "sustraccion": {
+        "valor_relativo": 12,
+        "probabilidad_24m": 0.12,
+        "referencia": 20,
+        "exponente": 0.7,
+        "exposicion": {
+          "farmacia": 6,
+          "alto_costo": 6,
+          "sedes": 1
+        },
+        "_nota": "Hurto calificado de medicamentos de alto costo y equipo."
+      },
+      "rc_patronal": {
+        "valor_relativo": 12,
+        "probabilidad_24m": 0.45,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 1
+        },
+        "_nota": "Responsabilidad del empleador por accidente laboral, mas alla de la ARL."
+      },
+      "rotura_maquinaria": {
+        "valor_relativo": 10,
+        "probabilidad_24m": 0.1,
+        "referencia": 25,
+        "exponente": 0.7,
+        "exposicion": {
+          "internacion": 6,
+          "camas": 0.3,
+          "salas_cirugia": 2
+        },
+        "_nota": "Calderas, autoclaves, plantas electricas. Solo donde hay hospitalizacion."
+      },
+      "d_and_o": {
+        "valor_relativo": 10,
+        "probabilidad_24m": 0.08,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 0.6,
+          "sedes": 2,
+          "es_publica": 5
+        },
+        "_nota": "Directores y administradores. Sube en ESE por el regimen de responsabilidad fiscal."
+      },
+      "montaje_obras": {
+        "valor_relativo": 8,
+        "probabilidad_24m": 0.06,
         "referencia": 6,
         "exponente": 0.7,
-        "_nota": "DATO DURO. Proxy directo de prima de RC medica: donde se opera esta la severidad."
+        "exposicion": {
+          "serv_nuevos": 1
+        },
+        "_nota": "Todo riesgo construccion y montaje. El disparador es la ampliacion, que el REPS delata con los servicios habilitados nuevos."
       },
-      "complejidad_alta": {
-        "peso": 0.35,
+      "soat": {
+        "valor_relativo": 5,
+        "probabilidad_24m": 0.1,
         "referencia": 8,
         "exponente": 0.7,
-        "_nota": "DATO DURO. Numero de servicios declarados de alta complejidad. Segunda elasticidad mas alta de la regresion."
-      },
-      "amplitud_escalera": {
-        "peso": 0.25,
-        "referencia": 5,
-        "exponente": 0.7,
-        "_nota": "DATO DURO. Grupos de servicio distintos (internacion, quirurgicos, apoyo diagnostico, consulta externa, atencion inmediata, transporte). Mide de cuantos tramos de la escalera de cross-sell hay materia prima, que no es lo mismo que el numero de servicios."
-      },
-      "servicios": {
-        "peso": 0.2,
-        "referencia": 150,
-        "exponente": 0.7,
-        "_nota": "DATO DURO, 96 % de cobertura. Superficie total de exposicion."
-      },
-      "camas": {
-        "peso": 0.15,
-        "referencia": 200,
-        "exponente": 0.7,
-        "_nota": "DATO DURO. Hospitalizacion: todo riesgo y severidad de RC."
-      },
-      "ambulancias": {
-        "peso": 0.12,
-        "referencia": 8,
-        "exponente": 0.7,
-        "_nota": "DATO DURO. Unico proxy de flota propia que hay: colectivo de autos."
-      },
-      "consultorios": {
-        "peso": 0.1,
-        "referencia": 90,
-        "exponente": 0.7,
-        "_nota": "DATO DURO, 82 % de cobertura. Puestos de trabajo de profesionales, muchos de ellos contratistas: es el proxy del ancla de RC de contratistas que antes se pretendia medir con 'contratistas'."
-      },
-      "crecimiento": {
-        "peso": 0.3,
-        "piso_pct": -25,
-        "techo_pct": 100,
-        "_nota": "Crecimiento 2019-2021. No estaba en la regresion: mira hacia adelante, no hacia el presente."
+        "exposicion": {
+          "ambulancias": 1
+        },
+        "_nota": "Obligatorio y de margen bajo, pero recurrente y sirve de puerta a la flota."
       }
+    },
+    "personas": {
+      "arl": {
+        "valor_relativo": 60,
+        "probabilidad_24m": 0.85,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 1
+        },
+        "_nota": "EL PRODUCTO DE ENTRADA. Prima alta pero comision baja: la comision sale del gasto de administracion de la ARL."
+      },
+      "vida_grupo": {
+        "valor_relativo": 25,
+        "probabilidad_24m": 0.3,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 1
+        },
+        "_nota": "Vida grupo empresarial. Se coloca con la empresa como tomador."
+      },
+      "salud_colectiva": {
+        "valor_relativo": 20,
+        "probabilidad_24m": 0.2,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 1
+        },
+        "_nota": "Plan complementario o medicina prepagada colectiva. La demanda existe sola por la crisis del sistema."
+      },
+      "accidentes_personales": {
+        "valor_relativo": 12,
+        "probabilidad_24m": 0.2,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 1
+        },
+        "_nota": "Colectivo de accidentes personales."
+      },
+      "voluntarios_nomina": {
+        "valor_relativo": 10,
+        "probabilidad_24m": 0.15,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 0.7,
+          "sedes": 3
+        },
+        "_nota": "Autos, hogar, educativo por descuento de nomina. Necesita jornadas en sede: por eso suma sedes."
+      },
+      "exequias": {
+        "valor_relativo": 8,
+        "probabilidad_24m": 0.25,
+        "referencia": 300,
+        "exponente": 0.7,
+        "exposicion": {
+          "planta": 0.7,
+          "sedes": 3
+        },
+        "_nota": "Alta penetracion y precio unitario bajo. Se vende en las mismas jornadas que ya estan montadas."
+      }
+    },
+    "crecimiento": {
+      "peso": 0.3,
+      "piso_pct": -25,
+      "techo_pct": 100,
+      "_nota": "Multiplica el total: una IPS que crece tendra mas de todo dentro de 24 meses."
     },
     "neutro_sin_crecimiento": 0.4,
     "piso_operativo": {
@@ -179,8 +418,8 @@
   },
   "escala": {
     "modo": "z_log",
-    "centro": -5.142,
-    "dispersion": 0.759,
+    "centro": -1.395,
+    "dispersion": 0.798,
     "puntos_por_sigma": 10,
     "centro_score": 50,
     "referencia_ratio": 0.175,
@@ -208,7 +447,7 @@
       "puntos_por_sigma=10 (no 15): con 15 el mejor cociente quedaba 3,9 sigmas arriba y 80 de las 249 cuentas del grupo de trabajo se pegaban al techo de 100. Con 10, el rango observado (-4,8 a +3,9 sigmas) cabe entero entre 2 y 89 sin recortar ni una.",
       "exponente_cac = 1,8. El cociente es LTV / CAC^exponente_cac. Con exponente 1 (cociente clasico) el CAC correlacionaba +0,05 con el resultado: el esfuerzo SUBIA levemente el score, al reves de lo que debe. Pasa porque valor y esfuerzo crecen juntos (correlacion 0,37) y el LTV varia 3,6 veces mas en logaritmo. Con 1,8 la correlacion es -0,15: el esfuerzo resta, sin dominar. El argumento de fondo no es estadistico: la capacidad del equipo es el cuello de botella real (cap. 3.4 del metodo: 12 cuentas A por ejecutivo), y cuando la restriccion es capacidad, el esfuerzo debe penalizarse mas que proporcionalmente. Medido al mover este numero: en 1 Viva 1A queda en el puesto 195 y en 3 se hunde al 8.090. En 1,8 queda en ~600, que es donde tiene sentido una cuenta valiosa pero cara de trabajar."
     ],
-    "exponente_cac": 1.8
+    "exponente_cac": 2.2
   },
   "umbrales": {
     "alta": 61,
@@ -241,5 +480,29 @@
     "con los ingresos es en parte circular porque se deriva de la nomina, que sale",
     "del mismo estado de resultados. Con estos pesos el dato duro del REPS aporta",
     "el 77 % del tamaño del LTV."
+  ],
+  "_cambio_v4": [
+    "El LTV deja de ser 'lo que predice ingresos' y pasa a ser 'la comision esperada",
+    "de la escalera de ramos a 24 meses'. El criterio ya no es estadistico sino de",
+    "negocio: cuanto de esto se traduce en polizas que podemos colocar.",
+    "",
+    "POR QUE SE CAMBIO. La regresion predecia INGRESOS DE LA IPS, y la prima de",
+    "seguros no escala con los ingresos sino con la EXPOSICION. Los dos casos donde",
+    "mas se separan son justo los que importan:",
+    "  · Una unidad renal o un centro de dispensacion factura mucho y tiene poca",
+    "    exposicion patrimonial: alto ingreso, prima baja.",
+    "  · Una clinica con quirofanos y hospitalizacion, estrangulada por la cartera",
+    "    de las EPS, factura poco para lo que expone: ingreso medio, prima alta.",
+    "La regresion penalizaba al segundo, que es el mejor cliente para un corredor.",
+    "",
+    "QUE MANDA Y QUE AUDITA. Los pesos los fija la prima esperada. La regresion se",
+    "queda como CONTROL: al correr score_icp.py se reporta la correlacion del LTV",
+    "con los ingresos reportados. Si cae por debajo de 0,45 es senal de que el",
+    "modelo se fue a la teoria y ya no describe actividad economica real.",
+    "",
+    "LOS NUMEROS DE PRIMA Y PROBABILIDAD SON ESTIMACIONES, no las tarifas de",
+    "Proactivos. `valor_relativo` deberia reemplazarse por la comision anual",
+    "esperada real de cada ramo, que ustedes si conocen. Ese es el ajuste que mas",
+    "mejoraria el modelo."
   ]
 }

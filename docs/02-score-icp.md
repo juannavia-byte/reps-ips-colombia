@@ -75,86 +75,141 @@ Por eso el score dejó de ser percentil y pasó a ser el logaritmo del cociente
 estandarizado. En una lista filtrada típica (291 IPS de la Costa) los scores ahora
 se reparten entre 59 y 87 con 29 valores distintos, en vez de amontonarse en 98.
 
-## La auditoría del LTV (v3)
+## El LTV: comisión esperada de la escalera de ramos (v4)
 
-Se revisó el otro lado de la ecuación y aparecieron dos cosas.
+El LTV dejó de ser «lo que predice los ingresos de la IPS» y pasó a ser **la
+comisión esperada de todos los ramos que le podemos colocar en 24 meses**.
 
-**1. Una variable estaba contada dos veces.** `contratistas` se calculaba como
-fuerza laboral menos planta, pero la fuerza laboral es `planta × 5,24` con un
-factor fijo. Entonces `contratistas = planta × 4,24`: **la correlación entre
-ambas era 1,0000 exacta**. Eran los dos pesos más altos del LTV, así que el dato
-menos confiable del modelo pesaba la mitad del valor total. Eliminada.
+Por cada ramo:
 
-**2. Faltaba la variable dura más predictiva.** Se ajustó una regresión de
-`ln(ingresos)` sobre los **4.650 prestadores que reportaron a Supersalud**, y
-`sedes` salió con la elasticidad más alta de todo el dato duro: **1,12**. Hasta
-ahora `sedes` solo existía en el CAC, como fricción — el modelo cobraba el costo
-de tener una red sin acreditarle el valor que esa red representa.
+    aporte = valor_relativo × probabilidad_24m × norm(exposición)
 
-El dato duro del REPS, sin la planta estimada, ya explica el **48,6 %** de la
-varianza de los ingresos reales.
+- `valor_relativo` — comisión anual esperada, en escala relativa 0–100 entre ramos
+- `probabilidad_24m` — P(el ramo está activo a 24 meses **dado que ganamos la cuenta**)
+- `exposición` — suma ponderada de variables medibles del REPS
 
-### Qué empuja el score hacia arriba
+El total se parte en dos bloques con peso global propio: **corporativo 1,00 ·
+personas 0,35**. Ese par de números es la palanca para inclinar la balanza sin
+tocar ramo por ramo.
 
-**Del lado del valor** — un término por tramo de la escalera, ocho de los nueve
-son dato duro. El orden de los pesos sale de la regresión.
+### ¿Hay conflicto entre «predecir ingresos» y «oportunidad de venta»?
 
-| Variable | Peso | Cobertura | Por qué |
+Conceptualmente sí, y en dos casos concretos:
+
+- Una **unidad renal o un centro de dispensación** factura mucho y expone poco:
+  ingreso alto, prima baja.
+- Una **clínica con quirófanos y hospitalización**, estrangulada por la cartera de
+  las EPS, factura poco para lo que expone: ingreso medio, prima alta.
+
+La regresión castigaba a la segunda, que es el mejor cliente para un corredor.
+**Por eso manda la lógica de prima.**
+
+Pero medido, el conflicto resultó **mucho menor de lo esperado**: el LTV por prima
+correlaciona **0,737** con los ingresos reportados — incluso algo mejor que el
+0,718 del modelo basado en regresión. Exposición y actividad económica van juntas,
+así que reordenar por prima no pelea con los datos, los reordena dentro de la misma
+estructura.
+
+**La regresión no se descarta: queda como auditoría.** Al correr `score_icp.py` se
+reporta esa correlación. Si cae por debajo de 0,45, es señal de que el modelo se
+fue a la teoría y dejó de describir actividad real.
+
+### Catálogo completo de seguros corporativos
+
+Ordenado por comisión anual esperada. La columna «exposición» dice de qué variable
+del REPS sale el tamaño.
+
+| Ramo corporativo | Valor | Prob. 24m | Exposición medida |
 |---|---|---|---|
-| Planta en nómina → ARL | 0,55 | 100 % | Prima del ramo de entrada. **Dato estimado**: se le da menos peso del que la estadística le daría (la regresión le asigna 0,94), porque además su correlación con ingresos es en parte circular — la planta se deriva de la nómina, que sale del mismo estado de resultados. |
-| **Sedes** | 0,45 | 100 % | **El predictor duro más fuerte.** Cada sede es un punto que asegurar. También está en el CAC: ahí cuesta, aquí vale. |
-| Salas de cirugía → RC médica | 0,35 | 10 % | Donde se opera está la severidad. |
-| Servicios de alta complejidad | 0,35 | 5 % | Segunda elasticidad más alta. |
-| Amplitud de la escalera | 0,25 | 96 % | Grupos de servicio distintos: de cuántos tramos hay materia prima. No es lo mismo que el número de servicios. |
-| Servicios habilitados | 0,20 | 96 % | Superficie total de exposición. |
-| Camas → todo riesgo | 0,15 | 15 % | Hospitalización. |
-| Ambulancias → autos | 0,12 | 23 % | Único proxy de flota propia. |
-| Consultorios → RC contratistas | 0,10 | 82 % | Puestos de profesionales, muchos contratistas. Es el proxy que antes se pretendía medir con `contratistas`. |
-| Crecimiento 19→21 | 0,30 | 34 % | Mira adelante; no estaba en la regresión. |
+| RC profesional médica institucional | 100 | 0,35 | salas de cirugía, camas, alta complejidad, internación |
+| Todo riesgo daños materiales *(incluye terremoto)* | 85 | 0,25 | sedes, camas, salas, consultorios |
+| Cumplimiento y garantía única | 55 | 0,45 | naturaleza pública, sedes, internación |
+| Equipo biomédico y electrónico | 45 | 0,22 | **imagenología**, salas, camas UCI, alto costo |
+| **RC contratistas** *(el ancla)* | 40 | **0,80** | consultorios, servicios |
+| RC extracontractual (predios y labores) | 30 | 0,35 | sedes, urgencias, consultorios |
+| Automóviles / flota | 30 | 0,15 | ambulancias |
+| Manejo global e infidelidad | 25 | 0,30 | sedes, farmacia, alto costo |
+| Lucro cesante por interrupción | 25 | 0,12 | camas, salas, internación |
+| RC profesional individual (por médico) | 25 | 0,40 | consultorios, servicios |
+| Ciberseguro y protección de datos | 20 | 0,20 | servicios, sedes, imagenología |
+| Transporte de mercancías (cadena de frío) | 15 | 0,15 | laboratorio, farmacia, alto costo |
+| RC ambiental (RESPEL) | 15 | 0,40 | cirugía, laboratorio, alto costo, internación |
+| Sustracción y hurto calificado | 12 | 0,12 | farmacia, alto costo, sedes |
+| RC patronal | 12 | 0,45 | planta |
+| Rotura de maquinaria | 10 | 0,10 | internación, camas, salas |
+| D&O (directores y administradores) | 10 | 0,08 | planta, sedes, naturaleza pública |
+| Montaje y obras civiles | 8 | 0,06 | **servicios nuevos en 12 meses** |
+| SOAT | 5 | 0,10 | ambulancias |
 
-Con estos pesos, **el dato duro del REPS aporta el 77 %** del tamaño del LTV.
+**Ramos que existen pero no entraron, y por qué:**
 
-> Un cero en capacidad **no es dato faltante**: en el REPS la capacidad se declara,
-> así que cero camas significa que de verdad no hospitaliza.
+- **Seguro de crédito (cartera)** — Solunion no suscribe cartera de EPS ni de sector
+  público, que es casi toda la facturación de una IPS. No aplica.
+- **Fianzas y seriedad de oferta** — sin dato para dimensionarlas.
+- **Multirriesgo PYME** — es un empaquetado de los anteriores, no una línea aparte.
+- **RC productos** — quedó absorbido en `manejo_infidelidad` vía farmacia; sepárelo
+  si llega a pesar.
 
-**Validación externa:** el LTV resultante correlaciona **0,718 con los ingresos
-reportados** de los 4.650 que sí reportaron — tan bien como una regresión ajustada,
-pero construido sobre dato duro y sin depender de la planta.
+### Catálogo de seguros de personal
 
-**Del lado del esfuerzo** (bajan el score)
+| Ramo de personas | Valor | Prob. 24m | Exposición |
+|---|---|---|---|
+| ARL *(producto de entrada)* | 60 | **0,85** | planta |
+| Vida grupo empresarial | 25 | 0,30 | planta |
+| Salud colectiva / plan complementario | 20 | 0,20 | planta |
+| Accidentes personales colectivo | 12 | 0,20 | planta |
+| Voluntarios por descuento de nómina | 10 | 0,15 | planta, sedes |
+| Exequias colectivo | 8 | 0,25 | planta, sedes |
 
-| Variable | Peso | Por qué |
-|---|---|---|
-| Interlocutores | 1,0 | Se estima de sedes y tamaño, en log2. |
-| Dispersión geográfica | 0,9 | Departamentos: desplazamiento y distancia a quien decide. |
-| Duración del ciclo | 0,6 | Crece con los municipios. |
-| Datos de contacto que faltan | 0,5 | Investigación previa por cada dato ausente. |
+> Los dos últimos suman **sedes** además de planta: necesitan jornadas presenciales,
+> y el canal de jornadas ya está montado.
 
-### Cómo se combinan: el exponente del esfuerzo
+### ⚠️ Los valores de prima son estimaciones, no sus tarifas
 
-    cociente = LTV / CAC ^ exponente_cac        (hoy 1,8)
+`valor_relativo` y `probabilidad_24m` salieron de la lógica del método y de
+magnitudes de mercado, **no de los libros de Proactivos**. Reemplazar
+`valor_relativo` por la comisión anual esperada real de cada ramo —que ustedes sí
+conocen— es **el ajuste que más mejoraría el modelo**, más que cualquier cambio
+estadístico.
 
-Con el cociente clásico (exponente 1) el CAC correlacionaba **+0,05** con el
-resultado: **el esfuerzo subía levemente el score**, al revés de lo que debe ser.
-Pasa porque valor y esfuerzo crecen juntos (correlación 0,37) y el LTV varía 3,6
-veces más en logaritmo. Con 1,8 la correlación es **−0,18**: el esfuerzo resta sin
-dominar.
+### Ejemplo: de dónde sale el valor de una cuenta
 
-El argumento de fondo no es estadístico. **La capacidad del equipo es el cuello de
-botella real** —cap. 3.4 del método: 12 cuentas A por ejecutivo— y cuando la
-restricción es capacidad, el esfuerzo debe penalizarse más que proporcionalmente.
+Bonnadona, desglosada por ramo:
 
-Medido moviendo ese número: con exponente 1, Viva 1A queda en el puesto 195 del
-universo; con 3 se hunde al 8.090. En 1,8 queda alrededor del 600, que es donde
-tiene sentido una cuenta valiosa pero cara de trabajar.
+| Ramo | Aporte |
+|---|---|
+| ARL | 51,0 |
+| RC médica institucional | 35,0 |
+| Todo riesgo daños | 21,3 |
+| RC contratistas | 19,1 |
+| Cumplimiento | 11,9 |
+| Equipo biomédico | 9,9 |
+
+Eso es lo que hace el modelo explicable en una reunión: no es «score 76», es
+«tiene dos salas de cirugía y 295 camas, así que la RC médica y el todo riesgo
+valen esto».
+
+### Un ajuste en el CAC que salió de este cambio
+
+Al entrar `sedes` al LTV como valor, quedó pesando también como fricción en el CAC,
+y valor y esfuerzo empezaron a pelearse al dividir (su correlación subió a 0,54).
+El argumento comercial apuntaba igual: **negociar con una red de 29 sedes en una
+sola ciudad es una sola negociación.** Lo que cuesta no es el número de sedes sino
+la dispersión —municipios y departamentos— y el gobierno corporativo.
+
+`k_sedes` bajó de 0,9 a 0,35, y `exponente_cac` quedó en **2,2**, que es donde la
+correlación entre el esfuerzo y el resultado es ≈ 0: **el esfuerzo queda
+exactamente pagado**, ni premiado ni castigado de más. Subirlo por encima de 2,2 es
+una decisión de negocio —preferir victorias rápidas cuando la capacidad aprieta—,
+no una corrección estadística.
 
 | Cuenta | Sedes | LTV | CAC | Score |
 |---|---|---|---|---|
-| OINSAMED | 1 | 2,91 | 6,9 | **86,1** |
-| Bonnadona | 2 | 3,18 | 9,4 | **79,8** |
-| Clínica General del Norte | 29 | 4,21 | 14,1 | **73,9** |
-| Clínica General San Diego | 1 | 0,61 | 6,2 | **67,9** |
-| Viva 1A | 89 | 3,31 | 18,1 | **64,9** |
+| OINSAMED | 1 | 232 | 6,3 | **84,9** |
+| Bonnadona | 2 | 230 | 8,5 | **76,5** |
+| Cl. General del Norte | 29 | 326 | 11,4 | **72,9** |
+| Clínica General San Diego | 1 | 62 | 5,7 | **71,2** |
+| Viva 1A | 89 | 345 | 14,5 | **67,0** |
 
 **Correcciones****Correcciones**
 

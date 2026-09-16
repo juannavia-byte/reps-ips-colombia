@@ -90,6 +90,14 @@ WITH geo AS (
          bool_or(sv.especificidades->>'especificidad_atencion_paciente_quemado' = 'SI') quemados,
          bool_or(sv.especificidades->>'especificidad_salud_mental' = 'SI')          salud_mental,
          count(DISTINCT sv.grupo_nombre)                                            n_grupos,
+         bool_or(sv.servicio_nombre ILIKE '%IMAGEN%' OR sv.servicio_nombre ILIKE '%RADIOLOG%'
+              OR sv.servicio_nombre ILIKE '%RESONANCIA%' OR sv.servicio_nombre ILIKE '%TOMOGRAF%') imagenologia,
+         bool_or(sv.servicio_nombre ILIKE '%LABORATORIO%')                          laboratorio,
+         bool_or(sv.servicio_nombre ILIKE '%FARMAC%' OR sv.servicio_nombre ILIKE '%MEDICAMENT%') farmacia,
+         bool_or(sv.servicio_nombre ILIKE '%DIALISIS%' OR sv.servicio_nombre ILIKE '%DIÁLISIS%'
+              OR sv.servicio_nombre ILIKE '%QUIMIOTERAP%' OR sv.servicio_nombre ILIKE '%RADIOTERAP%') alto_costo,
+         bool_or(sv.grupo_nombre = 'Internación')                                   internacion,
+         bool_or(sv.grupo_nombre = 'Atención Inmediata')                             urgencias,
          count(*) FILTER (WHERE sv.complejidad_alta)                                n_compl_alta,
          bool_or(sv.especificidades->>'especificidad_trasplante_renal' = 'SI'
               OR sv.especificidades->>'especificidad_trasplante_osteomuscular' = 'SI'
@@ -125,6 +133,10 @@ SELECT p.id, p.clase_prestador, coalesce(p.es_ese, false),
        coalesce(ri.oncologico, false), coalesce(ri.quemados, false),
        coalesce(ri.salud_mental, false), coalesce(ri.trasplante, false),
        coalesce(ri.n_grupos, 0), coalesce(ri.n_compl_alta, 0),
+       coalesce(ri.imagenologia,false), coalesce(ri.laboratorio,false),
+       coalesce(ri.farmacia,false), coalesce(ri.alto_costo,false),
+       coalesce(ri.internacion,false), coalesce(ri.urgencias,false),
+       (p.naturaleza_juridica = 'Pública'),
        coalesce(u.camas_uci, 0),
        coalesce(nv.n, 0),
        f.patrimonio, f.ingresos, f.costos,
@@ -181,7 +193,7 @@ def log2p(x: float) -> float:
 def calcular(fila: dict, cfg: dict) -> dict:
     """Devuelve score, ltv, cac y el desglose. Función pura: entra dato, sale número."""
     cac_cfg, ltv_cfg = cfg["cac"], cfg["ltv"]
-    pc, pl = cac_cfg["pesos"], ltv_cfg["pesos"]
+    pc = cac_cfg["pesos"]
     esc = cac_cfg["estructura"]
 
     # ── CAC: cuánto trabajo cuesta llegar a la firma
@@ -214,38 +226,63 @@ def calcular(fila: dict, cfg: dict) -> dict:
     cac = cac_cfg["esfuerzo_base"] + sum(aportes_cac.values())
 
     # ── LTV: valor de la cuenta completa a 24 meses
-    # Cada término del LTV mide un tramo distinto de la escalera de cross-sell.
+    # ── LTV: comisión esperada de la escalera completa de ramos a 24 meses.
     #
-    # Se eliminó el término "contratistas": era planta x 4,24, porque
-    # fuerza_laboral_alto se calcula como planta x 5,24 con un factor fijo. La
-    # correlación entre ambas era 1,0000 exacta, así que el dato menos confiable
-    # del modelo estaba contado dos veces y pesaba la mitad del LTV.
-    #
-    # Entró `sedes`, que en una regresión de ln(ingresos) sobre 4.650
-    # prestadores es el predictor duro más fuerte (elasticidad 1,12) y hasta
-    # ahora solo aparecía en el CAC, como costo.
-    VALORES = {
-        "nomina_arl": planta,
+    # El criterio ya no es "qué predice los ingresos de la IPS" sino "cuánto de
+    # esto se traduce en pólizas que podemos colocar". La prima de seguros no
+    # escala con la facturación sino con la EXPOSICIÓN: una unidad renal factura
+    # mucho y expone poco; una clínica con quirófanos, estrangulada por la
+    # cartera de las EPS, factura poco para lo que expone. La regresión
+    # castigaba a la segunda, que es el mejor cliente para un corredor.
+    VARIABLES = {
+        "planta": planta,
         "sedes": fila["n_sedes"] or 1,
-        "salas_cirugia": fila["salas_cirugia"] or 0,
-        "complejidad_alta": fila["n_compl_alta"] or 0,
-        "amplitud_escalera": fila["n_grupos"] or 0,
-        "servicios": fila["n_servicios"] or 0,
         "camas": fila["camas"] or 0,
-        "ambulancias": fila["ambulancias"] or 0,
+        "camas_uci": fila["camas_uci"] or 0,
+        "salas_cirugia": fila["salas_cirugia"] or 0,
         "consultorios": fila["consultorios"] or 0,
+        "ambulancias": fila["ambulancias"] or 0,
+        "servicios": fila["n_servicios"] or 0,
+        "grupos": fila["n_grupos"] or 0,
+        "compl_alta": fila["n_compl_alta"] or 0,
+        "serv_nuevos": fila["serv_nuevos"] or 0,
+        "imagenologia": 1 if fila["imagenologia"] else 0,
+        "laboratorio": 1 if fila["laboratorio"] else 0,
+        "farmacia": 1 if fila["farmacia"] else 0,
+        "alto_costo": 1 if fila["alto_costo"] else 0,
+        "internacion": 1 if fila["internacion"] else 0,
+        "urgencias": 1 if fila["urgencias"] else 0,
+        "es_publica": 1 if fila["es_publica"] else 0,
     }
-    crec = fila["crecimiento"]
-    norm_crec = (ltv_cfg["neutro_sin_crecimiento"] if crec is None
-                 else norm_lineal(float(crec), pl["crecimiento"]["piso_pct"],
-                                  pl["crecimiento"]["techo_pct"]))
 
-    aportes_ltv = {
-        k: pl[k]["peso"] * norm_potencia(v, pl[k]["referencia"], pl[k]["exponente"])
-        for k, v in VALORES.items() if k in pl
-    }
-    aportes_ltv["crecimiento"] = pl["crecimiento"]["peso"] * norm_crec
-    base_ltv = sum(aportes_ltv.values())
+    def valor_ramo(cfg_ramo):
+        expo = sum(VARIABLES.get(k, 0) * coef for k, coef in cfg_ramo["exposicion"].items())
+        n = norm_potencia(expo, cfg_ramo["referencia"], cfg_ramo["exponente"])
+        return cfg_ramo["valor_relativo"] * cfg_ramo["probabilidad_24m"] * n
+
+    ramos = {}
+    subtotal = {}
+    for grupo in ("corporativos", "personas"):
+        peso_g = ltv_cfg["peso_grupo"]["corporativo" if grupo == "corporativos" else "personas"]
+        total_g = 0.0
+        for nombre, c in ltv_cfg[grupo].items():
+            v = valor_ramo(c)
+            if v > 0:
+                ramos[nombre] = round(v, 2)
+            total_g += v
+        subtotal[grupo] = round(peso_g * total_g, 2)
+
+    crec_cfg = ltv_cfg["crecimiento"]
+    norm_crec = (ltv_cfg["neutro_sin_crecimiento"] if fila["crecimiento"] is None
+                 else norm_lineal(float(fila["crecimiento"]),
+                                  crec_cfg["piso_pct"], crec_cfg["techo_pct"]))
+    # El crecimiento multiplica: una IPS que crece tendrá más de todo en 24 meses.
+    factor_crec = 1.0 + crec_cfg["peso"] * (norm_crec - ltv_cfg["neutro_sin_crecimiento"])
+    base_ltv = (subtotal["corporativos"] + subtotal["personas"]) * factor_crec
+
+    aportes_ltv = {"corporativo": subtotal["corporativos"],
+                   "personas": subtotal["personas"],
+                   "factor_crecimiento": round(factor_crec, 3)}
 
     mult = ltv_cfg["multiplicadores"]
     senales = [k for k in ("quirurgico", "compl_alta", "oncologico", "quemados",
@@ -291,9 +328,9 @@ def calcular(fila: dict, cfg: dict) -> dict:
                     "estructura": {"sedes": sedes, "municipios": municipios,
                                    "departamentos": deptos,
                                    "personas_por_sede": round(planta / sedes, 1)}},
-            "ltv": {**{k: round(v, 3) for k, v in aportes_ltv.items()},
-                    "base": round(base_ltv, 3),
-                    "insumos": {k: v for k, v in VALORES.items()}},
+            "ltv": {**aportes_ltv, "base": round(base_ltv, 3),
+                    "por_ramo": dict(sorted(ramos.items(), key=lambda x: -x[1])),
+                    "insumos": {k: v for k, v in VARIABLES.items() if v}},
             "multiplicadores": {
                 "reclasificacion_riesgo": m_reclas,
                 "senales_alto_riesgo": senales,
@@ -392,6 +429,8 @@ def main() -> int:
                     "n_sedes", "n_mun", "n_dep",
                     "tel", "mail", "rep", "quirurgico", "compl_alta", "oncologico",
                     "quemados", "salud_mental", "trasplante", "n_grupos", "n_compl_alta",
+                    "imagenologia", "laboratorio", "farmacia", "alto_costo",
+                    "internacion", "urgencias", "es_publica",
                     "camas_uci", "serv_nuevos",
                     "patrimonio", "ingresos", "costos",
                     "camas", "salas_cirugia", "consultorios", "ambulancias", "n_servicios"]
