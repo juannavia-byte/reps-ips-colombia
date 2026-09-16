@@ -1,194 +1,279 @@
 <title>Registro de prestadores · filtro de cartera</title>
 <style>
   :root{
-    --ground:#F4F7F5; --surface:#FFFFFF; --surface-2:#EEF3F0;
-    --ink:#121C18; --muted:#5C6E67; --faint:#8A9A93;
-    --line:#DCE5E0; --line-strong:#C4D2CB;
-    --accent:#1F6F5C; --accent-soft:#E2F0EA; --accent-ink:#14503F;
-    --warn:#A96B10; --warn-soft:#F7EDDB;
-    --crit:#A93B2C; --crit-soft:#F8E6E2;
+    --ground:#F4F7F5; --surface:#FFFFFF; --surface-2:#EDF2EF; --surface-3:#E3EBE7;
+    --ink:#121C18; --muted:#57685F; --faint:#869790;
+    --line:#DAE4DF; --line-strong:#BFCFC7;
+    --accent:#1F6F5C; --accent-soft:#E0EFE9; --accent-ink:#134B3C;
+    --warn:#A06410; --warn-soft:#F6EBD8;
+    --crit:#A33A2B; --crit-soft:#F7E4E0;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    --rail:272px;
+    --rail:248px;
+    --top:52px;
   }
   @media (prefers-color-scheme:dark){
     :root{
-      --ground:#0C1210; --surface:#131A17; --surface-2:#182120;
-      --ink:#E4ECE7; --muted:#90A29A; --faint:#6B7D76;
-      --line:#222C28; --line-strong:#31403A;
-      --accent:#4FBFA3; --accent-soft:#16302A; --accent-ink:#7FD8C0;
-      --warn:#D79A3E; --warn-soft:#2E2617;
+      --ground:#0B110F; --surface:#131A17; --surface-2:#19221F; --surface-3:#212B27;
+      --ink:#E4ECE7; --muted:#93A59C; --faint:#6D7F77;
+      --line:#212B27; --line-strong:#33423B;
+      --accent:#4FBFA3; --accent-soft:#16302A; --accent-ink:#84DCC4;
+      --warn:#D79A3E; --warn-soft:#2C2517;
       --crit:#E0715C; --crit-soft:#2E1B18;
     }
   }
   :root[data-theme="dark"]{
-    --ground:#0C1210; --surface:#131A17; --surface-2:#182120;
-    --ink:#E4ECE7; --muted:#90A29A; --faint:#6B7D76;
-    --line:#222C28; --line-strong:#31403A;
-    --accent:#4FBFA3; --accent-soft:#16302A; --accent-ink:#7FD8C0;
-    --warn:#D79A3E; --warn-soft:#2E2617;
+    --ground:#0B110F; --surface:#131A17; --surface-2:#19221F; --surface-3:#212B27;
+    --ink:#E4ECE7; --muted:#93A59C; --faint:#6D7F77;
+    --line:#212B27; --line-strong:#33423B;
+    --accent:#4FBFA3; --accent-soft:#16302A; --accent-ink:#84DCC4;
+    --warn:#D79A3E; --warn-soft:#2C2517;
     --crit:#E0715C; --crit-soft:#2E1B18;
   }
   :root[data-theme="light"]{
-    --ground:#F4F7F5; --surface:#FFFFFF; --surface-2:#EEF3F0;
-    --ink:#121C18; --muted:#5C6E67; --faint:#8A9A93;
-    --line:#DCE5E0; --line-strong:#C4D2CB;
-    --accent:#1F6F5C; --accent-soft:#E2F0EA; --accent-ink:#14503F;
-    --warn:#A96B10; --warn-soft:#F7EDDB;
-    --crit:#A93B2C; --crit-soft:#F8E6E2;
+    --ground:#F4F7F5; --surface:#FFFFFF; --surface-2:#EDF2EF; --surface-3:#E3EBE7;
+    --ink:#121C18; --muted:#57685F; --faint:#869790;
+    --line:#DAE4DF; --line-strong:#BFCFC7;
+    --accent:#1F6F5C; --accent-soft:#E0EFE9; --accent-ink:#134B3C;
+    --warn:#A06410; --warn-soft:#F6EBD8;
+    --crit:#A33A2B; --crit-soft:#F7E4E0;
   }
 
   *{box-sizing:border-box}
+  html,body{height:100%}
   body{
     margin:0; background:var(--ground); color:var(--ink);
-    font-family:var(--sans); font-size:14px; line-height:1.5;
-    -webkit-font-smoothing:antialiased;
+    font-family:var(--sans); font-size:14px; line-height:1.45;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
   }
-  h1,h2,h3{margin:0; text-wrap:balance}
+  button,input,select{font:inherit; color:inherit}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 
-  /* ---------- masthead: cabecera de registro ---------- */
+  /* ══ cabecera ══ */
   .masthead{
-    border-bottom:1px solid var(--line-strong); background:var(--surface);
-    padding:14px 20px; display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;
-    position:sticky; top:0; z-index:40;
+    height:var(--top); border-bottom:1px solid var(--line-strong); background:var(--surface);
+    padding:0 18px; display:flex; align-items:center; gap:16px;
   }
-  .brand{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:600}
+  .brand{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.15em;
+    text-transform:uppercase; font-weight:600; white-space:nowrap;
+  }
   .brand b{color:var(--accent)}
-  .masthead .sub{color:var(--muted); font-size:12.5px}
-  .masthead .corte{
-    font-family:var(--mono); font-size:11px; color:var(--faint);
-    margin-left:auto; letter-spacing:.04em;
+  .masthead .sub{
+    color:var(--muted); font-size:12.5px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; min-width:0;
   }
+  .masthead .corte{
+    font-family:var(--mono); font-size:10.5px; color:var(--faint);
+    margin-left:auto; white-space:nowrap;
+  }
+  @media (max-width:760px){ .masthead .sub{display:none} }
 
-  /* ---------- layout ---------- */
-  .shell{display:grid; grid-template-columns:var(--rail) minmax(0,1fr); gap:0; align-items:start}
-  @media (max-width:940px){ .shell{grid-template-columns:1fr} }
-
+  /* ══ estructura ══ */
+  .shell{display:grid; grid-template-columns:var(--rail) minmax(0,1fr); height:calc(100vh - var(--top))}
   .rail{
     border-right:1px solid var(--line); background:var(--surface);
-    padding:16px 16px 90px; position:sticky; top:53px;
-    max-height:calc(100vh - 53px); overflow-y:auto;
-    display:flex; flex-direction:column; gap:18px;
+    overflow-y:auto; padding:14px 14px 28px;
+    display:flex; flex-direction:column; gap:16px;
   }
-  @media (max-width:940px){ .rail{position:static; max-height:none; border-right:0; border-bottom:1px solid var(--line); padding-bottom:16px} }
+  .main{display:flex; flex-direction:column; min-width:0; overflow:hidden}
 
-  .group{display:flex; flex-direction:column; gap:8px}
-  .group > .label{
-    font-family:var(--mono); font-size:10.5px; letter-spacing:.13em;
+  @media (max-width:900px){
+    body{overflow:auto}
+    .shell{grid-template-columns:1fr; height:auto}
+    .rail{border-right:0; border-bottom:1px solid var(--line-strong); overflow:visible}
+    .main{overflow:visible}
+  }
+
+  /* ══ controles del panel ══ */
+  .group{display:flex; flex-direction:column; gap:7px}
+  .label{
+    font-family:var(--mono); font-size:10px; letter-spacing:.12em;
     text-transform:uppercase; color:var(--faint); font-weight:600;
   }
-
+  .hint{font-size:11.5px; color:var(--muted); line-height:1.4; margin:0}
   input[type="search"],input[type="number"],select{
-    width:100%; font:inherit; font-size:13px; color:var(--ink);
-    background:var(--surface-2); border:1px solid var(--line);
-    border-radius:4px; padding:6px 8px;
+    width:100%; font-size:13px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:5px; padding:6px 8px;
   }
   input[type="number"]{font-family:var(--mono); font-variant-numeric:tabular-nums}
-  select[multiple]{height:132px; font-family:var(--mono); font-size:12px; padding:4px}
-  input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{
-    outline:2px solid var(--accent); outline-offset:1px;
-  }
   .pair{display:grid; grid-template-columns:1fr 1fr; gap:6px}
 
-  .checks{display:flex; flex-direction:column; gap:6px}
-  .check{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink); cursor:pointer}
-  .check input{accent-color:var(--accent); margin:0}
+  .checks{display:flex; flex-direction:column; gap:5px}
+  .check{display:flex; align-items:center; gap:7px; font-size:12.5px; cursor:pointer}
+  .check input{accent-color:var(--accent); margin:0; flex:none}
+  .check .n{margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--faint)}
+
+  .geo{border:1px solid var(--line); border-radius:6px; background:var(--surface-2); overflow:hidden}
+  .geo .scroll{max-height:210px; overflow-y:auto; padding:5px 9px 9px}
+  .region{margin-top:6px}
+  .region:first-child{margin-top:1px}
+  .region > .head{
+    display:flex; align-items:center; gap:7px; padding:3px 0; cursor:pointer;
+    font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); font-weight:600;
+  }
+  .region > .head input{accent-color:var(--accent); margin:0}
+  .region > .head .n{margin-left:auto; color:var(--faint)}
+  .region .deps{display:flex; flex-direction:column; gap:3px; padding-left:19px}
+  .region .deps .check{font-size:12px}
+
+  .quick{display:flex; flex-wrap:wrap; gap:5px}
+  .quick button{
+    font-size:11.5px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--muted); border-radius:20px; padding:3px 9px; cursor:pointer;
+  }
+  .quick button:hover{border-color:var(--accent); color:var(--accent)}
+  .quick button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+
+  .presets{display:flex; flex-direction:column; gap:5px}
+  .preset{
+    text-align:left; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:6px; padding:7px 10px; cursor:pointer; line-height:1.3;
+  }
+  .preset:hover{border-color:var(--accent)}
+  .preset[aria-pressed="true"]{border-color:var(--accent); background:var(--accent-soft)}
+  .preset .t{display:block; font-size:12.5px; font-weight:600}
+  .preset .d{display:block; font-size:11px; color:var(--muted); margin-top:1px}
 
   .railbtn{
-    font:inherit; font-size:12.5px; background:none; border:1px solid var(--line-strong);
-    color:var(--muted); border-radius:4px; padding:6px 10px; cursor:pointer;
+    background:none; border:1px solid var(--line-strong); color:var(--muted);
+    border-radius:5px; padding:6px 10px; cursor:pointer; font-size:12.5px;
   }
-  .railbtn:hover{border-color:var(--accent); color:var(--accent)}
+  .railbtn:hover{border-color:var(--crit); color:var(--crit)}
 
-  /* ---------- panel principal ---------- */
-  .main{padding:16px 20px 120px; min-width:0}
-
-  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px}
+  /* ══ resumen ══ */
+  .summary{padding:10px 16px 0; display:flex; flex-direction:column; gap:9px; flex:none}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(126px,1fr)); gap:8px}
   .tile{
     background:var(--surface); border:1px solid var(--line); border-radius:6px;
-    padding:11px 13px; display:flex; flex-direction:column; gap:3px;
+    padding:8px 11px; display:flex; flex-direction:column; gap:1px; min-width:0;
   }
-  .tile .k{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint)}
-  .tile .v{font-family:var(--mono); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
-  .tile .n{font-size:11.5px; color:var(--muted)}
+  .tile .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--faint)}
+  .tile .v{
+    font-family:var(--mono); font-size:19px; font-weight:600;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .tile .n{font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .tile.mark{border-color:var(--accent); background:var(--accent-soft)}
   .tile.mark .v{color:var(--accent-ink)}
 
-  .tablewrap{
-    background:var(--surface); border:1px solid var(--line); border-radius:6px;
-    overflow-x:auto;
+  .bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-height:26px}
+  .bar .activos{display:flex; gap:6px; flex-wrap:wrap; align-items:center; min-width:0}
+  .bar .orden{display:flex; align-items:center; gap:6px; margin-left:auto; flex:none}
+  .bar .orden span{font-size:11.5px; color:var(--faint)}
+  .bar .orden select{width:auto; font-size:12px; padding:3px 6px}
+  .bar .orden button{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:5px;
+    padding:3px 8px; cursor:pointer; font-family:var(--mono); font-size:11px;
   }
-  table{border-collapse:collapse; width:100%; font-size:12.5px}
+  .activo{
+    display:inline-flex; align-items:center; gap:4px; font-size:11.5px;
+    background:var(--accent-soft); color:var(--accent-ink);
+    border:1px solid var(--accent); border-radius:20px; padding:2px 4px 2px 9px;
+  }
+  .activo button{
+    background:none; border:0; color:inherit; cursor:pointer; font-size:13px;
+    line-height:1; padding:0 3px; opacity:.6;
+  }
+  .activo button:hover{opacity:1}
+  .sinfiltros{font-size:11.5px; color:var(--faint)}
+
+  /* ══ rejilla ══ */
+  .gridwrap{
+    margin:9px 16px 0; border:1px solid var(--line); border-radius:6px;
+    background:var(--surface); overflow:auto; flex:1; min-height:0;
+  }
+  @media (max-width:900px){ .gridwrap{max-height:72vh} }
+  @media (max-width:1360px){
+    thead th:nth-child(7), tbody td:nth-child(7){display:none}
+  }
+  table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:max-content; min-width:100%}
   thead th{
-    position:sticky; top:53px; z-index:20; background:var(--surface-2);
-    font-family:var(--mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase;
-    color:var(--muted); font-weight:600; text-align:left;
-    padding:8px 9px; border-bottom:1px solid var(--line-strong); white-space:nowrap;
+    position:sticky; top:0; z-index:3; background:var(--surface-3);
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; text-align:left; white-space:nowrap;
+    padding:7px 8px; border-bottom:1px solid var(--line-strong);
   }
   thead th.num{text-align:right}
   thead th.sortable{cursor:pointer; user-select:none}
   thead th.sortable:hover{color:var(--accent)}
-  thead th .arrow{color:var(--accent); font-size:9px}
-  tbody td{padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top}
-  tbody tr:hover{background:var(--surface-2)}
-  tbody tr.sel{background:var(--accent-soft)}
+  thead th .arrow{color:var(--accent)}
+  th.c0,td.c0{position:sticky; left:0; z-index:2; width:34px}
+  th.c1,td.c1{position:sticky; left:34px; z-index:2; width:230px}
+  thead th.c0,thead th.c1{z-index:4}
+  tbody td{padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; background:var(--surface)}
+  tbody tr:hover td{background:var(--surface-2)}
+  tbody tr.sel td{background:var(--accent-soft)}
   td.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
-  td.name{min-width:240px; max-width:340px}
-  td.name .rz{font-weight:600; display:block; line-height:1.35}
-  td.name .meta{font-family:var(--mono); font-size:10.5px; color:var(--faint); letter-spacing:.02em}
-  td.geo{white-space:nowrap; font-size:12px}
-  td.geo .dep{display:block; color:var(--muted); font-size:10.5px}
-  td.band{white-space:nowrap; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--muted)}
+
+  .rz{
+    font-weight:600; font-size:12.5px; line-height:1.25;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden; overflow-wrap:anywhere;
+  }
+  .meta{
+    display:block; font-family:var(--mono); font-size:10px; color:var(--faint);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px;
+  }
+  td.geo{font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  td.geo .dep{display:block; color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis}
+  td.band{
+    white-space:nowrap; font-family:var(--mono); font-size:11px;
+    font-variant-numeric:tabular-nums; color:var(--muted); text-align:right;
+  }
 
   .chip{
-    display:inline-block; font-family:var(--mono); font-size:9.5px; letter-spacing:.07em;
-    text-transform:uppercase; padding:1.5px 5px; border-radius:3px; border:1px solid var(--line-strong);
-    color:var(--muted); white-space:nowrap;
+    display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.06em;
+    text-transform:uppercase; padding:1px 4px; border-radius:3px;
+    border:1px solid var(--line-strong); color:var(--muted); white-space:nowrap;
   }
-  .chip.nomina{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
+  .chip.nom{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
   .chip.ese{border-color:var(--warn); color:var(--warn); background:var(--warn-soft)}
-  .chip.nuevo{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
+  .delta{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; display:block; font-size:12px}
+  .delta.up{color:var(--accent)}
+  .delta.down{color:var(--crit)}
+  .serie{display:block; font-family:var(--mono); font-size:9.5px; color:var(--faint)}
 
-  .delta{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; display:block}
-  .delta.crece{color:var(--accent)}
-  .delta.cae{color:var(--crit)}
-  .serie{display:block; font-family:var(--mono); font-size:10px; color:var(--faint)}
-
-  .more{padding:11px; text-align:center; color:var(--muted); font-size:12px; border-top:1px solid var(--line)}
-  .more button{font:inherit; font-size:12px; background:none; border:1px solid var(--line-strong); color:var(--ink); border-radius:4px; padding:5px 11px; cursor:pointer}
+  .more{padding:10px; text-align:center; color:var(--muted); font-size:12px}
+  .more button{
+    background:none; border:1px solid var(--line-strong); color:var(--ink);
+    border-radius:5px; padding:5px 11px; cursor:pointer; font-size:12px;
+  }
   .more button:hover{border-color:var(--accent); color:var(--accent)}
 
-  /* ---------- barra de acción ---------- */
+  /* ══ acciones ══ */
   .dock{
-    position:fixed; left:0; right:0; bottom:0; z-index:50;
-    background:var(--surface); border-top:1px solid var(--line-strong);
-    padding:10px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    flex:none; background:var(--surface); border-top:1px solid var(--line-strong);
+    padding:9px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   }
-  .dock .count{font-family:var(--mono); font-size:12.5px; font-variant-numeric:tabular-nums}
-  .dock .count b{color:var(--accent-ink); font-size:14px}
+  .dock .count{font-family:var(--mono); font-size:12px; font-variant-numeric:tabular-nums}
+  .dock .count b{color:var(--accent-ink); font-size:13.5px}
   .dock .spacer{margin-left:auto}
-  .btn{
-    font:inherit; font-size:13px; font-weight:600; cursor:pointer;
-    border-radius:5px; padding:8px 14px; border:1px solid transparent;
-  }
+  .btn{font-size:12.5px; font-weight:600; cursor:pointer; border-radius:5px;
+       padding:7px 13px; border:1px solid transparent}
   .btn.primary{background:var(--accent); color:#fff}
   .btn.primary:hover{filter:brightness(1.08)}
-  .btn.ghost{background:none; border-color:var(--line-strong); color:var(--ink)}
+  .btn.primary:disabled{opacity:.4; cursor:not-allowed; filter:none}
+  .btn.ghost{background:none; border-color:var(--line-strong)}
   .btn.ghost:hover{border-color:var(--accent); color:var(--accent)}
 
-  /* ---------- nota metodológica ---------- */
   details.note{
-    margin-top:16px; background:var(--surface); border:1px solid var(--line);
-    border-left:3px solid var(--warn); border-radius:5px; padding:11px 14px;
+    margin:9px 0 14px; background:var(--surface); border:1px solid var(--line);
+    border-left:3px solid var(--warn); border-radius:5px; padding:10px 13px;
   }
-  details.note summary{cursor:pointer; font-weight:600; font-size:13px}
-  details.note .body{margin-top:9px; color:var(--muted); font-size:12.5px; display:flex; flex-direction:column; gap:8px; max-width:74ch}
-  details.note code{font-family:var(--mono); font-size:11.5px; background:var(--surface-2); padding:1px 4px; border-radius:3px}
+  details.note summary{cursor:pointer; font-weight:600; font-size:12.5px}
+  details.note .body{
+    margin-top:8px; color:var(--muted); font-size:12px;
+    display:flex; flex-direction:column; gap:7px; max-width:74ch;
+  }
+  details.note code{font-family:var(--mono); font-size:11px; background:var(--surface-2); padding:1px 4px; border-radius:3px}
   details.note b{color:var(--ink)}
 </style>
 
 <header class="masthead">
-  <span class="brand">Registro de prestadores · <b>Colombia</b></span>
+  <span class="brand">Prestadores de salud · <b>Colombia</b></span>
   <span class="sub">Filtra el universo y exporta la selección a HubSpot</span>
   <span class="corte" id="corte">—</span>
 </header>
@@ -196,28 +281,26 @@
 <div class="shell">
   <aside class="rail">
     <div class="group">
+      <span class="label">Empezar por</span>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="group">
       <label class="label" for="q">Buscar</label>
       <input type="search" id="q" placeholder="Razón social o NIT" autocomplete="off">
     </div>
 
     <div class="group">
-      <label class="label" for="dep">Departamento</label>
-      <select id="dep" multiple size="7"></select>
-      <input type="search" id="mun" placeholder="Municipio contiene…" autocomplete="off">
-    </div>
-
-    <div class="group">
-      <span class="label">Naturaleza</span>
-      <div class="checks" id="natChecks"></div>
-    </div>
-
-    <div class="group">
-      <span class="label">Clase</span>
-      <div class="checks" id="claseChecks"></div>
+      <span class="label">Dónde tiene sedes</span>
+      <div class="geo"><div class="scroll" id="geoLista"></div></div>
+      <p class="hint">El REPS registra los distritos aparte de su departamento:
+        <b>Barranquilla no está dentro de Atlántico</b>. Marcar la región los toma todos.</p>
+      <input type="search" id="mun" placeholder="…o escribe un municipio" autocomplete="off">
     </div>
 
     <div class="group">
       <span class="label">Planta estimada en nómina</span>
+      <div class="quick" id="qPlanta"></div>
       <div class="pair">
         <input type="number" id="plantaMin" placeholder="mín" min="0">
         <input type="number" id="plantaMax" placeholder="máx" min="0">
@@ -225,220 +308,405 @@
     </div>
 
     <div class="group">
-      <span class="label">Camas</span>
+      <span class="label">Capacidad instalada</span>
       <div class="pair">
-        <input type="number" id="camasMin" placeholder="mín" min="0">
-        <input type="number" id="camasMax" placeholder="máx" min="0">
+        <input type="number" id="camasMin" placeholder="camas ≥" min="0">
+        <input type="number" id="salasMin" placeholder="salas cx ≥" min="0">
+      </div>
+      <div class="pair">
+        <input type="number" id="consMin" placeholder="consult. ≥" min="0">
+        <input type="number" id="sedesMin" placeholder="sedes ≥" min="0">
       </div>
     </div>
 
     <div class="group">
-      <span class="label">Salas de cirugía</span>
-      <div class="pair">
-        <input type="number" id="salasMin" placeholder="mín" min="0">
-        <input type="number" id="salasMax" placeholder="máx" min="0">
-      </div>
-    </div>
-
-    <div class="group">
-      <span class="label">Sedes</span>
-      <div class="pair">
-        <input type="number" id="sedesMin" placeholder="mín" min="0">
-        <input type="number" id="sedesMax" placeholder="máx" min="0">
-      </div>
-    </div>
-
-    <div class="group">
-      <span class="label">Tendencia de planta 2019 → 2021</span>
+      <span class="label">Tendencia de planta 2019→2021</span>
       <div class="checks" id="tendChecks"></div>
-      <div class="pair">
-        <input type="number" id="crecMin" placeholder="crec. % mín">
-        <input type="number" id="crecMax" placeholder="crec. % máx">
-      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Tipo de prestador</span>
+      <div class="checks" id="claseChecks"></div>
+      <div class="checks" id="natChecks"></div>
     </div>
 
     <div class="group">
       <span class="label">Señales</span>
       <div class="checks">
-        <label class="check"><input type="checkbox" id="fNuevo"> Habilitó servicio nuevo (12 meses)</label>
-        <label class="check"><input type="checkbox" id="fNomina"> Estimación por nómina (no por capacidad)</label>
-        <label class="check"><input type="checkbox" id="fFin"> Tiene estado financiero</label>
+        <label class="check"><input type="checkbox" id="fNuevo"> Habilitó servicio nuevo (12 m)</label>
+        <label class="check"><input type="checkbox" id="fNomina"> Planta medida con nómina real</label>
         <label class="check"><input type="checkbox" id="fContacto"> Tiene teléfono o correo</label>
         <label class="check"><input type="checkbox" id="fRep"> Tiene representante legal</label>
+        <label class="check"><input type="checkbox" id="fLocal"> No es red nacional (≤3 deptos)</label>
       </div>
     </div>
 
-    <button class="railbtn" id="reset" type="button">Limpiar filtros</button>
+    <button class="railbtn" id="reset" type="button">Limpiar todos los filtros</button>
   </aside>
 
   <main class="main">
-    <section class="tiles" id="tiles"></section>
+    <section class="summary">
+      <div class="tiles" id="tiles"></div>
+      <div class="bar">
+        <div class="activos" id="activos"></div>
+        <div class="orden">
+          <span>Ordenar por</span>
+          <select id="orden">
+            <option value="planta">Planta estimada</option>
+            <option value="delta_personas">Personas sumadas 19→21</option>
+            <option value="crecimiento">Crecimiento % 19→21</option>
+            <option value="camas">Camas</option>
+            <option value="salas_cirugia">Salas de cirugía</option>
+            <option value="consultorios">Consultorios</option>
+            <option value="sedes">Sedes</option>
+            <option value="serv_nuevos_12m">Servicios nuevos 12 m</option>
+            <option value="razon_social">Razón social (A–Z)</option>
+          </select>
+          <button id="dir" type="button" title="Invertir el orden">mayor →</button>
+        </div>
+      </div>
+    </section>
 
-    <div class="tablewrap">
+    <div class="gridwrap" id="gridwrap">
       <table>
         <thead>
           <tr>
-            <th style="width:30px"><input type="checkbox" id="selAll" title="Seleccionar lo visible"></th>
-            <th class="sortable" data-k="razon_social">Prestador</th>
-            <th>Ubicación</th>
-            <th class="num sortable" data-k="sedes">Sedes</th>
-            <th class="num sortable" data-k="camas">Camas</th>
-            <th class="num sortable" data-k="salas_cirugia">Salas cx</th>
-            <th class="num sortable" data-k="consultorios">Consult.</th>
-            <th class="num sortable" data-k="planta">Planta est.</th>
-            <th class="num sortable" data-k="crecimiento">Crec. 19→21</th>
-            <th>Fuerza laboral</th>
-            <th class="num sortable" data-k="serv_nuevos_12m">Serv. 12m</th>
+            <th class="c0"><input type="checkbox" id="selAll" title="Seleccionar lo visible"></th>
+            <th class="c1 sortable" data-k="razon_social">Prestador</th>
+            <th style="width:106px">Ubicación</th>
+            <th class="num sortable" data-k="sedes" style="width:56px">Sedes</th>
+            <th class="num sortable" data-k="camas" style="width:60px">Camas</th>
+            <th class="num sortable" data-k="salas_cirugia" style="width:62px">Salas cx</th>
+            <th class="num sortable" data-k="consultorios" style="width:56px">Consult.</th>
+            <th class="num sortable" data-k="planta" style="width:92px">Planta est.</th>
+            <th class="num sortable" data-k="delta_personas" style="width:90px">Crec. 19→21</th>
+            <th class="num" style="width:90px">Fuerza laboral</th>
+            <th class="num sortable" data-k="serv_nuevos_12m" style="width:54px">Serv. 12m</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
       <div class="more" id="more"></div>
+
+      <details class="note" style="margin-left:10px; margin-right:10px">
+        <summary>Cómo leer «Planta est.», «Crec. 19→21» y «Fuerza laboral»</summary>
+        <div class="body">
+          <p><b>No son dato de fuente.</b> Ninguna entidad pública colombiana publica la planta de una IPS. Son derivados; el método vive en la base, en <code>reps.estimacion_personal</code>.</p>
+          <p><b>Planta est.</b> es planta formal <b>en nómina</b>: el gasto de nómina de los estados financieros de Supersalud dividido por el costo anual de un trabajador. Ese costo no se inventa: SIHO publica la planta nacional de las ESE y los mismos estados dan su nómina agregada. Para 2021 el cociente es <code>$30,9 M por persona/año</code>, unos 2,84 salarios mínimos de ese año con carga prestacional. El chip <span class="chip nom">nómina</span> marca a quienes salen así; el resto vienen de una regresión sobre camas, salas, sedes y ambulancias con R² de 0,36 — orden de magnitud, no cifra.</p>
+          <p><b>Crec. 19→21</b> compara la planta de 2019 con la de 2021 con el costo por trabajador calibrado <b>año por año</b> (2019 $32,6 M · 2020 $29,5 M · 2021 $30,9 M), así que mide personas y no inflación salarial. Solo hay cifra si existen las dos vigencias y la base de 2019 llega a 3 personas.</p>
+          <p><b>Fuerza laboral</b> es la banda con tercerizados: ×1,25 a ×5,24 sobre la planta, medido contra 47 IPS de la Costa con conteo conocido. La brecha tiene tamaño: en 2021 las ESE gastaron <b>$11,4 billones en servicios de salud comprados contra $1,5 billones de nómina propia</b>.</p>
+          <p><b>Para ARL esa brecha es el negocio.</b> La afiliación sigue al empleador de registro: la planta en nómina es lo que la IPS afilia por su cuenta; a los tercerizados los afilia la bolsa de empleo. Dos cuentas, dos ventas.</p>
+          <p>Sedes, servicios y capacidad sí son dato duro del REPS, corte del 16 de septiembre de 2026. Los financieros de Supersalud llegan hasta 2021: es la última vigencia publicada.</p>
+        </div>
+      </details>
     </div>
 
-    <details class="note">
-      <summary>Cómo leer «Planta est.», «Crec. 19→21» y «Fuerza laboral» — leer antes de usarlas</summary>
-      <div class="body">
-        <p><b>No son dato de fuente.</b> Ninguna entidad pública colombiana publica la planta de una IPS. Son derivados; el método vive en la base, en <code>reps.estimacion_personal</code>.</p>
-        <p><b>Planta est.</b> es planta formal <b>en nómina</b>: el gasto de nómina de los estados financieros de Supersalud dividido por el costo anual de un trabajador. Ese costo no se inventa: SIHO publica la planta nacional de las ESE y los mismos estados financieros dan su nómina agregada. Para 2021 el cociente es <code>$30,9 M por persona/año</code>, unos 2,84 salarios mínimos de ese año con carga prestacional. El chip <span class="chip nomina">nómina</span> marca a quienes salen así; el resto vienen de una regresión sobre camas, salas, sedes y ambulancias con R² de 0,36 — orden de magnitud, no cifra.</p>
-        <p><b>Crec. 19→21</b> compara la planta estimada de 2019 con la de 2021. El costo por trabajador se calibra <b>año por año</b> (2019 $32,6 M · 2020 $29,5 M · 2021 $30,9 M), así que el número es de personas y no de inflación salarial. Solo hay cifra cuando existen las dos vigencias y la base de 2019 llega a 3 personas; por debajo de eso una persona más mueve el porcentaje un 50 %.</p>
-        <p><b>Fuerza laboral</b> es la banda que incluye tercerizados: ×1,25 a ×5,24 sobre la planta, medido contra 47 IPS de la Costa con conteo conocido. La brecha tiene tamaño: en 2021 las ESE gastaron <b>$11,4 billones en servicios de salud comprados contra $1,5 billones de nómina propia</b>, 7,5 a 1.</p>
-        <p><b>Para ARL esa brecha es el negocio, no un tecnicismo.</b> La afiliación sigue al empleador de registro: la planta en nómina es lo que la IPS afilia por su cuenta; a los tercerizados los afilia la bolsa de empleo que los contrata. Son dos cuentas y dos ventas distintas.</p>
-        <p>Sedes, servicios y capacidad instalada sí son dato duro del REPS, con corte del 16 de septiembre de 2026. Los financieros son de Supersalud y llegan hasta 2021: es la última vigencia que esa entidad publicó.</p>
-      </div>
-    </details>
+    <div class="dock">
+      <span class="count" id="dockCount">—</span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="clearSel" type="button">Quitar selección</button>
+      <button class="btn ghost" id="expFiltered" type="button">Exportar filtrado</button>
+      <button class="btn primary" id="expSel" type="button" disabled>Exportar selección</button>
+    </div>
   </main>
-</div>
-
-<div class="dock">
-  <span class="count" id="dockCount">—</span>
-  <span class="spacer"></span>
-  <button class="btn ghost" id="clearSel" type="button">Quitar selección</button>
-  <button class="btn ghost" id="expFiltered" type="button">Exportar filtrado</button>
-  <button class="btn primary" id="expSel" type="button">Exportar selección</button>
 </div>
 
 <script src="datos.js"></script>
 <script>
 (function(){
   "use strict";
-  var C = {}, COLS = window.DATOS.cols, ROWS = window.DATOS.rows;
-  COLS.forEach(function(c,i){ C[c] = i; });
+  var C = {}, ROWS = window.DATOS.rows;
+  window.DATOS.cols.forEach(function(c,i){ C[c] = i; });
 
   var CLASES = {Inst:"IPS", Obje:"Objeto social distinto", Tran:"Transporte de pacientes"};
-  var fmt = function(n){ return n==null ? "·" : n.toLocaleString("es-CO"); };
+  var TEND = {creciendo:"Creciendo (≥ +10 %)", estable:"Estable (±10 %)",
+              decreciendo:"Decreciendo (≤ −10 %)", sin_serie:"Sin serie comparable"};
 
-  document.getElementById("corte").textContent = "REPS corte 16-sep-2026 · " + ROWS.length.toLocaleString("es-CO") + " entidades";
+  // El REPS registra once distritos como si fueran departamentos. Agruparlos por
+  // región evita el error de filtrar "Atlántico" y perder las 585 entidades que
+  // están bajo "Barranquilla".
+  var REGIONES = {
+    "Costa Caribe": ["Atlántico","Barranquilla","Bolívar","Cartagena","Magdalena",
+                     "Santa Marta","Cesar","Córdoba","Sucre","La Guajira",
+                     "San Andrés y Providencia"],
+    "Andina": ["Antioquia","Bogotá D.C","Boyacá","Caldas","Cundinamarca","Huila",
+               "Norte de Santander","Quindío","Risaralda","Santander","Tolima"],
+    "Pacífica": ["Valle del cauca","Cali","Buenaventura","Cauca","Chocó","Nariño"],
+    "Orinoquía": ["Arauca","Casanare","Meta","Vichada"],
+    "Amazonía": ["Amazonas","Caquetá","Guainía","Guaviare","Putumayo","Vaupés"]
+  };
 
-  // ---- poblar controles desde los datos, no a mano
-  // El conteo por departamento va por PRESENCIA, no por sede de referencia: 842
-  // entidades operan en más de un departamento y una red nacional tiene sedes en
-  // la Costa aunque su sede principal esté en Medellín.
-  var deps = {}, nats = {}, clases = {};
+  var fmt = function(n){ return n == null ? "·" : n.toLocaleString("es-CO"); };
+  // Los totales de fuerza laboral pasan del millón y no caben en la tarjeta.
+  function banda(a, b){
+    var ca = corto(a), cb = corto(b);
+    var ua = ca.split(" ")[1], ub = cb.split(" ")[1];
+    if(ua && ua === ub) return ca.split(" ")[0] + "–" + cb;   // "62–261 mil"
+    return ca + "–" + cb;
+  }
+  function corto(n){
+    if(n == null) return "·";
+    if(n >= 1e6) return (n/1e6).toFixed(1).replace(".", ",") + " M";
+    if(n >= 10000) return Math.round(n/1000) + " mil";
+    return n.toLocaleString("es-CO");
+  }
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
+    });
+  }
+  var $ = function(id){ return document.getElementById(id); };
+
+  $("corte").textContent = "REPS 16-sep-2026 · " + ROWS.length.toLocaleString("es-CO") + " entidades";
+
+  // ── conteos, por presencia real de sedes
+  var deps = {}, nats = {}, clases = {}, tends = {};
   ROWS.forEach(function(r){
     (r[C.deps] || "").split("|").forEach(function(d){ if(d) deps[d] = (deps[d]||0)+1; });
     if(r[C.naturaleza]) nats[r[C.naturaleza]] = (nats[r[C.naturaleza]]||0)+1;
     clases[r[C.clase]] = (clases[r[C.clase]]||0)+1;
+    if(r[C.tendencia]) tends[r[C.tendencia]] = (tends[r[C.tendencia]]||0)+1;
   });
-  var depSel = document.getElementById("dep");
-  Object.keys(deps).sort().forEach(function(d){
-    var o = document.createElement("option");
-    o.value = d; o.textContent = d + "  (" + deps[d] + ")";
-    depSel.appendChild(o);
-  });
-  function buildChecks(host, obj, cls, labeller){
-    Object.keys(obj).sort(function(a,b){ return obj[b]-obj[a]; }).forEach(function(k){
-      var l = document.createElement("label"); l.className = "check";
-      var i = document.createElement("input");
-      i.type = "checkbox"; i.value = k; i.className = cls;
-      l.appendChild(i);
-      l.appendChild(document.createTextNode(" " + labeller(k) + " (" + obj[k].toLocaleString("es-CO") + ")"));
-      host.appendChild(l);
+
+  function checkbox(cls, valor, etiqueta, conteo, extra){
+    var l = document.createElement("label");
+    l.className = extra || "check";
+    l.innerHTML = '<input type="checkbox" class="' + cls + '" value="' + esc(valor) + '">' +
+      esc(etiqueta) + '<span class="n">' + conteo.toLocaleString("es-CO") + "</span>";
+    return l;
+  }
+
+  // ── geografía agrupada por región
+  (function(){
+    var host = $("geoLista"), vistos = {};
+    Object.keys(REGIONES).forEach(function(region){
+      var presentes = REGIONES[region].filter(function(d){ return deps[d]; });
+      if(!presentes.length) return;
+      var total = presentes.reduce(function(a,d){ return a + deps[d]; }, 0);
+      var wrap = document.createElement("div");
+      wrap.className = "region";
+      wrap.appendChild(checkbox("fRegion", region, region, total, "head"));
+      var lista = document.createElement("div");
+      lista.className = "deps";
+      presentes.forEach(function(d){
+        vistos[d] = true;
+        lista.appendChild(checkbox("fDep", d, d, deps[d]));
+      });
+      wrap.appendChild(lista);
+      host.appendChild(wrap);
+    });
+    var sueltos = Object.keys(deps).filter(function(d){ return !vistos[d]; }).sort();
+    if(sueltos.length){
+      var extra = document.createElement("div");
+      extra.className = "region";
+      extra.innerHTML = '<div class="head">Otros</div>';
+      var l2 = document.createElement("div");
+      l2.className = "deps";
+      sueltos.forEach(function(d){ l2.appendChild(checkbox("fDep", d, d, deps[d])); });
+      extra.appendChild(l2);
+      host.appendChild(extra);
+    }
+  })();
+
+  function buildChecks(host, obj, cls, etiqueta){
+    Object.keys(obj).sort(function(a,b){ return obj[b] - obj[a]; }).forEach(function(k){
+      host.appendChild(checkbox(cls, k, etiqueta(k), obj[k]));
     });
   }
-  buildChecks(document.getElementById("natChecks"), nats, "fNat", function(k){ return k; });
-  buildChecks(document.getElementById("claseChecks"), clases, "fClase", function(k){ return CLASES[k]||k; });
+  buildChecks($("claseChecks"), clases, "fClase", function(k){ return CLASES[k] || k; });
+  buildChecks($("natChecks"), nats, "fNat", function(k){ return k; });
+  buildChecks($("tendChecks"), tends, "fTend", function(k){ return TEND[k] || k; });
 
-  var TEND = {creciendo:"Creciendo (≥ +10 %)", estable:"Estable (±10 %)",
-              decreciendo:"Decreciendo (≤ −10 %)", sin_serie:"Sin serie comparable"};
-  var tends = {};
-  ROWS.forEach(function(r){ var t = r[C.tendencia]; if(t) tends[t] = (tends[t]||0)+1; });
-  buildChecks(document.getElementById("tendChecks"), tends, "fTend", function(k){ return TEND[k]||k; });
+  // ── atajos de planta
+  [["≥ 50",50],["≥ 100",100],["≥ 200",200],["≥ 500",500]].forEach(function(p){
+    var b = document.createElement("button");
+    b.type = "button"; b.textContent = p[0];
+    b.setAttribute("aria-pressed","false");
+    b.onclick = function(){
+      $("plantaMin").value = ($("plantaMin").value === String(p[1])) ? "" : p[1];
+      despresetear();
+      filtrar();
+    };
+    $("qPlanta").appendChild(b);
+  });
 
-  // ---- estado
-  var sel = new Set(), limite = 250, sortKey = "planta", sortDir = -1, vista = [];
+  function marcar(cls, valor){
+    var i = document.querySelector("." + cls + '[value="' + valor + '"]');
+    if(i) i.checked = true;
+  }
+  function marcarRegion(region, on){
+    var r = document.querySelector('.fRegion[value="' + region + '"]');
+    if(r) r.checked = on;
+    (REGIONES[region] || []).forEach(function(d){
+      var i = document.querySelector('.fDep[value="' + d + '"]');
+      if(i) i.checked = on;
+    });
+  }
+  function despresetear(){
+    document.querySelectorAll(".preset").forEach(function(b){ b.setAttribute("aria-pressed","false"); });
+  }
 
-  function val(id){ var v = document.getElementById(id).value; return v === "" ? null : +v; }
-  function checked(cls){
-    return Array.prototype.filter.call(document.querySelectorAll("." + cls), function(i){ return i.checked; })
-      .map(function(i){ return i.value; });
+  // ── presets: fijan filtros VISIBLES, no un puntaje oculto
+  var PRESETS = [
+    {t:"IPS de la Costa con planta", d:"Región Costa Caribe · solo IPS · 50 personas o más",
+     set:function(){ marcarRegion("Costa Caribe", true); marcar("fClase","Inst"); $("plantaMin").value = 50; }},
+    {t:"Hospitalarias con quirófano", d:"30 camas o más y al menos una sala de cirugía",
+     set:function(){ $("camasMin").value = 30; $("salasMin").value = 1; }},
+    {t:"Creciendo y contactables", d:"Planta al alza 2019→2021, con teléfono o correo",
+     set:function(){ marcar("fTend","creciendo"); $("fContacto").checked = true; }},
+    {t:"Con novedad en el REPS", d:"Habilitaron un servicio nuevo en los últimos 12 meses",
+     set:function(){ $("fNuevo").checked = true; marcar("fClase","Inst"); }},
+    {t:"Medianas locales", d:"50 a 500 personas, máximo 3 departamentos",
+     set:function(){ $("plantaMin").value = 50; $("plantaMax").value = 500; $("fLocal").checked = true; }}
+  ];
+  PRESETS.forEach(function(p){
+    var b = document.createElement("button");
+    b.className = "preset"; b.type = "button";
+    b.setAttribute("aria-pressed","false");
+    b.innerHTML = '<span class="t">' + esc(p.t) + '</span><span class="d">' + esc(p.d) + "</span>";
+    b.onclick = function(){
+      var activo = b.getAttribute("aria-pressed") === "true";
+      limpiar();
+      if(!activo){ p.set(); b.setAttribute("aria-pressed","true"); }
+      filtrar();
+    };
+    $("presets").appendChild(b);
+  });
+
+  // ── estado
+  var sel = new Set(), limite = 200, orden = "planta", dir = -1, vista = [];
+
+  function val(id){ var v = $(id).value; return v === "" ? null : +v; }
+  function marcados(cls){
+    return Array.prototype.filter.call(document.querySelectorAll("." + cls),
+      function(i){ return i.checked; }).map(function(i){ return i.value; });
+  }
+  function limpiar(){
+    document.querySelectorAll('input[type="search"],input[type="number"]').forEach(function(i){ i.value = ""; });
+    document.querySelectorAll('input[type="checkbox"]').forEach(function(i){ i.checked = false; });
+    despresetear();
+    sel.clear();
   }
 
   function filtrar(){
-    var q = document.getElementById("q").value.trim().toLowerCase();
-    var mun = document.getElementById("mun").value.trim().toLowerCase();
-    var depsOn = Array.prototype.filter.call(depSel.options, function(o){ return o.selected; })
-      .map(function(o){ return o.value; });
-    var natsOn = checked("fNat"), clasesOn = checked("fClase");
+    var q = $("q").value.trim().toLowerCase();
+    var mun = $("mun").value.trim().toLowerCase();
+    var depsOn = marcados("fDep"), natsOn = marcados("fNat");
+    var clasesOn = marcados("fClase"), tendsOn = marcados("fTend");
     var pMin = val("plantaMin"), pMax = val("plantaMax");
-    var cMin = val("camasMin"), cMax = val("camasMax");
-    var sMin = val("salasMin"), sMax = val("salasMax");
-    var seMin = val("sedesMin"), seMax = val("sedesMax");
-    var tendsOn = checked("fTend");
-    var crMin = val("crecMin"), crMax = val("crecMax");
-    var oNuevo = document.getElementById("fNuevo").checked;
-    var oNomina = document.getElementById("fNomina").checked;
-    var oFin = document.getElementById("fFin").checked;
-    var oCont = document.getElementById("fContacto").checked;
-    var oRep = document.getElementById("fRep").checked;
-
-    function rango(v, lo, hi){
-      if(lo != null && (v == null || v < lo)) return false;
-      if(hi != null && (v == null || v > hi)) return false;
-      return true;
-    }
+    var cMin = val("camasMin"), sMin = val("salasMin");
+    var coMin = val("consMin"), seMin = val("sedesMin");
+    var oNuevo = $("fNuevo").checked, oNomina = $("fNomina").checked;
+    var oCont = $("fContacto").checked, oRep = $("fRep").checked, oLocal = $("fLocal").checked;
 
     vista = ROWS.filter(function(r){
       if(q && (r[C.razon_social]||"").toLowerCase().indexOf(q) < 0 && (r[C.nit]||"").indexOf(q) < 0) return false;
-      // Geografía por presencia: se busca en TODAS sus sedes, no solo en la principal.
       if(mun && (r[C.muns]||"").toLowerCase().indexOf(mun) < 0) return false;
       if(depsOn.length){
         var suyos = "|" + (r[C.deps]||"") + "|";
-        var hay = depsOn.some(function(d){ return suyos.indexOf("|" + d + "|") >= 0; });
-        if(!hay) return false;
+        if(!depsOn.some(function(d){ return suyos.indexOf("|" + d + "|") >= 0; })) return false;
       }
       if(natsOn.length && natsOn.indexOf(r[C.naturaleza]) < 0) return false;
       if(clasesOn.length && clasesOn.indexOf(r[C.clase]) < 0) return false;
-      if(!rango(r[C.planta], pMin, pMax)) return false;
-      if(!rango(r[C.camas], cMin, cMax)) return false;
-      if(!rango(r[C.salas_cirugia], sMin, sMax)) return false;
-      if(!rango(r[C.sedes], seMin, seMax)) return false;
       if(tendsOn.length && tendsOn.indexOf(r[C.tendencia]) < 0) return false;
-      if(!rango(r[C.crecimiento], crMin, crMax)) return false;
+      if(pMin != null && (r[C.planta] == null || r[C.planta] < pMin)) return false;
+      if(pMax != null && (r[C.planta] == null || r[C.planta] > pMax)) return false;
+      if(cMin != null && (r[C.camas]||0) < cMin) return false;
+      if(sMin != null && (r[C.salas_cirugia]||0) < sMin) return false;
+      if(coMin != null && (r[C.consultorios]||0) < coMin) return false;
+      if(seMin != null && (r[C.sedes]||0) < seMin) return false;
       if(oNuevo && !r[C.serv_nuevos_12m]) return false;
       if(oNomina && r[C.metodo] !== "nom") return false;
-      if(oFin && r[C.ingresos_mm] == null && r[C.activos_mm] == null) return false;
       if(oCont && !r[C.telefono] && !r[C.email]) return false;
       if(oRep && !r[C.rep_legal]) return false;
+      if(oLocal && (r[C.n_dep]||1) > 3) return false;
       return true;
     });
 
-    var k = C[sortKey];
+    var k = C[orden];
     vista.sort(function(a,b){
       var x = a[k], y = b[k];
-      if(typeof x === "string" || typeof y === "string"){
-        return (x||"").localeCompare(y||"", "es") * sortDir;
-      }
-      return ((x == null ? -1 : x) - (y == null ? -1 : y)) * sortDir;
+      if(orden === "razon_social") return (x||"").localeCompare(y||"","es") * (dir === -1 ? -1 : 1);
+      // Los vacíos van SIEMPRE al final. Si se les diera un valor extremo,
+      // al invertir el orden coparían las primeras filas.
+      if(x == null && y == null) return 0;
+      if(x == null) return 1;
+      if(y == null) return -1;
+      return (x - y) * dir;
     });
-    limite = 250;
+    limite = 200;
+    $("gridwrap").scrollTop = 0;
     pintar();
   }
 
+  // ── lo aplicado, visible y quitable uno por uno
+  function chipsActivos(){
+    var out = [];
+    function add(txt, quitar){ out.push([txt, quitar]); }
+    if($("q").value.trim()) add('"' + $("q").value.trim() + '"', function(){ $("q").value = ""; });
+    if($("mun").value.trim()) add("municipio: " + $("mun").value.trim(), function(){ $("mun").value = ""; });
+    var d = marcados("fDep");
+    if(d.length) add(d.length === 1 ? d[0] : d.length + " departamentos", function(){
+      document.querySelectorAll(".fDep,.fRegion").forEach(function(i){ i.checked = false; });
+    });
+    marcados("fClase").forEach(function(c){
+      add(CLASES[c] || c, function(){ document.querySelector('.fClase[value="' + c + '"]').checked = false; });
+    });
+    marcados("fNat").forEach(function(c){
+      add(c, function(){ document.querySelector('.fNat[value="' + c + '"]').checked = false; });
+    });
+    marcados("fTend").forEach(function(c){
+      add(TEND[c] || c, function(){ document.querySelector('.fTend[value="' + c + '"]').checked = false; });
+    });
+    [["plantaMin","planta ≥ "],["plantaMax","planta ≤ "],["camasMin","camas ≥ "],
+     ["salasMin","salas cx ≥ "],["consMin","consultorios ≥ "],["sedesMin","sedes ≥ "]]
+      .forEach(function(p){
+        if($(p[0]).value !== "") add(p[1] + $(p[0]).value, function(){ $(p[0]).value = ""; });
+      });
+    [["fNuevo","servicio nuevo 12 m"],["fNomina","nómina real"],["fContacto","con contacto"],
+     ["fRep","con rep. legal"],["fLocal","≤ 3 departamentos"]].forEach(function(p){
+      if($(p[0]).checked) add(p[1], function(){ $(p[0]).checked = false; });
+    });
+
+    var host = $("activos");
+    host.innerHTML = "";
+    if(!out.length){
+      host.innerHTML = '<span class="sinfiltros">Sin filtros: ves el universo completo. ' +
+        "Usa «Empezar por» o arma el tuyo en el panel.</span>";
+      return;
+    }
+    out.forEach(function(c){
+      var s = document.createElement("span");
+      s.className = "activo";
+      s.appendChild(document.createTextNode(c[0]));
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = "×"; b.title = "Quitar este filtro";
+      b.onclick = function(){ c[1](); despresetear(); filtrar(); };
+      s.appendChild(b);
+      host.appendChild(s);
+    });
+  }
+
+  // Tres casos distintos, y conviene no confundirlos:
+  //  · sin las dos vigencias      -> no hay nada que decir
+  //  · con las dos y base ≥ 3     -> personas sumadas y porcentaje
+  //  · con las dos y base < 3     -> solo personas: un 1→703 daría +70.200 %,
+  //                                  que es aritmética correcta y señal inútil
+  function crecimiento(r){
+    var d = r[C.delta_personas], v = r[C.crecimiento];
+    if(d == null && v == null) return '<span class="chip">sin serie</span>';
+    if(d == null) d = 0;
+    var cls = d > 0 ? "up" : d < 0 ? "down" : "";
+    var pie = v == null
+      ? fmt(r[C.planta_2019]) + "→" + fmt(r[C.planta_2021]) + " base baja"
+      : (v > 0 ? "+" : "") + v.toFixed(0) + "% · " + fmt(r[C.planta_2019]) + "→" + fmt(r[C.planta_2021]);
+    return '<span class="delta ' + cls + '" title="personas sumadas entre 2019 y 2021">' +
+      (d > 0 ? "+" : "") + fmt(d) + "</span>" + '<span class="serie">' + pie + "</span>";
+  }
+
   function pintar(){
-    // tiles
-    var n = vista.length, camas = 0, planta = 0, flb = 0, fla = 0, nuevos = 0, conNom = 0;
-    var creciendo = 0, conSerie = 0;
+    var n = vista.length, camas = 0, planta = 0, flb = 0, fla = 0;
+    var nuevos = 0, conNom = 0, creciendo = 0, conSerie = 0;
     vista.forEach(function(r){
       camas += r[C.camas] || 0;
       planta += r[C.planta] || 0;
@@ -452,78 +720,81 @@
       }
     });
     var tiles = [
-      ["Entidades", fmt(n), n ? Math.round(conNom/n*100) + " % con nómina real" : "sin resultados", true],
-      ["Camas", fmt(camas), "capacidad declarada en REPS", false],
-      ["Planta en nómina", fmt(planta), "suma de estimaciones", false],
-      ["Fuerza laboral", fmt(flb) + "–" + fmt(fla), "banda con tercerizados", false],
-      ["Servicio nuevo 12m", fmt(nuevos), "disparador REPS fechado", false],
-      ["Planta creciendo", fmt(creciendo), "de " + fmt(conSerie) + " con serie 19→21", false],
+      ["Entidades", fmt(n), n ? Math.round(conNom/n*100) + " % con nómina" : "sin resultados", true],
+      ["Planta en nómina", corto(planta), "suma estimada", false],
+      ["Fuerza laboral", banda(flb, fla), "con tercerizados", false],
+      ["Camas", corto(camas), "declaradas en REPS", false],
+      ["Creciendo", fmt(creciendo), "de " + fmt(conSerie) + " con serie", false],
+      ["Novedad REPS", fmt(nuevos), "servicio nuevo 12 m", false],
       ["Seleccionadas", fmt(sel.size), "listas para exportar", sel.size > 0]
     ];
-    document.getElementById("tiles").innerHTML = tiles.map(function(t){
+    $("tiles").innerHTML = tiles.map(function(t){
       return '<div class="tile' + (t[3] ? " mark" : "") + '"><span class="k">' + t[0] +
-        '</span><span class="v">' + t[1] + '</span><span class="n">' + t[2] + '</span></div>';
+        '</span><span class="v">' + t[1] + '</span><span class="n">' + t[2] + "</span></div>";
     }).join("");
 
-    // filas
     var slice = vista.slice(0, limite);
-    document.getElementById("tbody").innerHTML = slice.map(function(r){
-      var id = r[C.nit];
+    $("tbody").innerHTML = slice.map(function(r){
+      var id = r[C.nit], nom = r[C.razon_social] || "";
       var chips = "";
       if(r[C.ese] === 1) chips += ' <span class="chip ese">ESE</span>';
-      if(r[C.nivel]) chips += ' <span class="chip">Nivel ' + r[C.nivel] + "</span>";
-      return '<tr class="' + (sel.has(id) ? "sel" : "") + '" data-id="' + id + '">' +
-        '<td><input type="checkbox" class="rowchk"' + (sel.has(id) ? " checked" : "") + '></td>' +
-        '<td class="name"><span class="rz">' + esc(r[C.razon_social]) + "</span>" +
-          '<span class="meta">NIT ' + id + (r[C.dv] ? "-" + r[C.dv] : "") + "</span>" + chips + "</td>" +
-        '<td class="geo">' + esc(r[C.municipio] || "·") +
-          (r[C.n_mun] > 1 ? ' <span class="chip">+' + (r[C.n_mun]-1) + "</span>" : "") +
-          '<span class="dep">' + esc(r[C.departamento] || "") +
-          (r[C.n_dep] > 1 ? " · " + r[C.n_dep] + " deptos" : "") + "</span></td>" +
+      if(r[C.nivel]) chips += ' <span class="chip">Niv ' + r[C.nivel] + "</span>";
+      if((r[C.n_dep]||1) > 3) chips += ' <span class="chip">' + r[C.n_dep] + " deptos</span>";
+      return '<tr class="' + (sel.has(id) ? "sel" : "") + '" data-id="' + esc(id) + '">' +
+        '<td class="c0"><input type="checkbox" class="rowchk"' + (sel.has(id) ? " checked" : "") + '></td>' +
+        '<td class="c1"><span class="rz" title="' + esc(nom) + '">' + esc(nom) + "</span>" +
+          '<span class="meta">NIT ' + esc(id) + (r[C.dv] ? "-" + esc(r[C.dv]) : "") + chips + "</span></td>" +
+        '<td class="geo" title="' + esc(r[C.municipio] || "") + '">' + esc(r[C.municipio] || "·") +
+          (r[C.n_mun] > 1 ? " +" + (r[C.n_mun]-1) : "") +
+          '<span class="dep">' + esc(r[C.departamento] || "") + "</span></td>" +
         '<td class="num">' + fmt(r[C.sedes]) + "</td>" +
         '<td class="num">' + fmt(r[C.camas]) + "</td>" +
         '<td class="num">' + fmt(r[C.salas_cirugia]) + "</td>" +
         '<td class="num">' + fmt(r[C.consultorios]) + "</td>" +
         '<td class="num">' + fmt(r[C.planta]) +
-          (r[C.metodo] === "nom" ? ' <span class="chip nomina">nómina</span>' : "") + "</td>" +
+          (r[C.metodo] === "nom" ? ' <span class="chip nom">nómina</span>' : "") + "</td>" +
         '<td class="num">' + crecimiento(r) + "</td>" +
         '<td class="band">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
-        '<td class="num">' + (r[C.serv_nuevos_12m] ? '<span class="chip nuevo">' + r[C.serv_nuevos_12m] + "</span>" : "·") + "</td>" +
+        '<td class="num">' + (r[C.serv_nuevos_12m] || "·") + "</td>" +
         "</tr>";
     }).join("");
 
-    var more = document.getElementById("more");
-    if(!n){ more.textContent = "Ningún prestador cumple estos filtros."; }
-    else if(limite < n){
+    var more = $("more");
+    if(!n){
+      more.innerHTML = "Ningún prestador cumple estos filtros. " +
+        '<button type="button" id="aflojar">Limpiar filtros</button>';
+      $("aflojar").onclick = function(){ limpiar(); filtrar(); };
+    } else if(limite < n){
       more.innerHTML = "Mostrando " + fmt(limite) + " de " + fmt(n) +
-        ' · <button type="button" id="mas">Ver 250 más</button>';
-      document.getElementById("mas").onclick = function(){ limite += 250; pintar(); };
-    } else { more.textContent = "Mostrando las " + fmt(n) + " que cumplen los filtros."; }
+        ' · <button type="button" id="mas">Ver 200 más</button>';
+      $("mas").onclick = function(){ limite += 200; pintar(); };
+    } else {
+      more.textContent = "Mostrando las " + fmt(n) + " que cumplen los filtros.";
+    }
 
-    document.getElementById("dockCount").innerHTML =
-      "<b>" + fmt(vista.length) + "</b> filtradas · <b>" + fmt(sel.size) + "</b> seleccionadas";
-    document.getElementById("selAll").checked =
-      slice.length > 0 && slice.every(function(r){ return sel.has(r[C.nit]); });
+    $("dockCount").innerHTML = "<b>" + fmt(n) + "</b> filtradas · <b>" + fmt(sel.size) + "</b> seleccionadas";
+    $("expSel").disabled = sel.size === 0;
+    $("selAll").checked = slice.length > 0 && slice.every(function(r){ return sel.has(r[C.nit]); });
+    chipsActivos();
+    marcarOrden();
   }
 
-  // El crecimiento se muestra con la serie que lo sustenta: sin 2019 y 2021
-  // comparables no hay número, y eso se dice en vez de mostrar un cero.
-  function crecimiento(r){
-    var v = r[C.crecimiento];
-    if(v == null) return '<span class="chip">sin serie</span>';
-    var cls = v >= 10 ? "crece" : v <= -10 ? "cae" : "";
-    var signo = v > 0 ? "+" : "";
-    return '<span class="delta ' + cls + '">' + signo + v.toFixed(0) + "%</span>" +
-      '<span class="serie">' + fmt(r[C.planta_2019]) + "→" + fmt(r[C.planta_2021]) + "</span>";
-  }
-
-  function esc(s){
-    return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
+  function marcarOrden(){
+    document.querySelectorAll("th.sortable").forEach(function(th){
+      var a = th.querySelector(".arrow");
+      if(a) a.remove();
+      if(th.dataset.k === orden){
+        var s = document.createElement("span");
+        s.className = "arrow";
+        s.textContent = dir === 1 ? " ▲" : " ▼";
+        th.appendChild(s);
+      }
     });
+    $("orden").value = orden;
+    $("dir").textContent = dir === 1 ? "menor →" : "mayor →";
   }
 
-  // ---- exportación
+  // ── exportación
   var EXPORT = [
     ["nit","nit"],["dv","digito_verificacion"],["razon_social","razon_social"],
     ["clase","clase_prestador"],["naturaleza","naturaleza_juridica"],["ese","es_ese"],
@@ -535,22 +806,22 @@
     ["salas_cirugia","salas_cirugia"],["consultorios","consultorios"],["ambulancias","ambulancias"],
     ["planta","planta_nomina_estimada"],["fl_bajo","fuerza_laboral_bajo"],["fl_alto","fuerza_laboral_alto"],
     ["metodo","metodo_estimacion"],["planta_2019","planta_2019"],["planta_2021","planta_2021"],
-    ["crecimiento","crecimiento_pct_2019_2021"],["tendencia","tendencia_planta"],
+    ["crecimiento","crecimiento_pct_2019_2021"],["delta_personas","personas_sumadas_2019_2021"],
+    ["tendencia","tendencia_planta"],
     ["ingresos_mm","ingresos_millones"],["activos_mm","activos_millones"],
     ["serv_nuevos_12m","servicios_nuevos_12m"]
   ];
-  function csv(rows, nombre){
-    if(!rows.length){ alert("No hay filas que exportar con los filtros actuales."); return; }
+  function csv(filas, nombre){
+    if(!filas.length) return;
     var head = EXPORT.map(function(p){ return p[1]; }).join(";");
-    var body = rows.map(function(r){
+    var body = filas.map(function(r){
       return EXPORT.map(function(p){
         var v = r[C[p[0]]];
         if(v == null) return "";
         v = String(v);
-        return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+        return /[;"\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
       }).join(";");
     }).join("\r\n");
-    // BOM para que Excel en español respete los acentos
     var blob = new Blob(["﻿" + head + "\r\n" + body], {type:"text/csv;charset=utf-8;"});
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -559,32 +830,50 @@
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
   }
 
-  // ---- eventos
-  ["q","mun","plantaMin","plantaMax","camasMin","camasMax","salasMin","salasMax",
-   "sedesMin","sedesMax","crecMin","crecMax"]
-    .forEach(function(id){ document.getElementById(id).addEventListener("input", filtrar); });
-  depSel.addEventListener("change", filtrar);
-  ["fNuevo","fNomina","fFin","fContacto","fRep"].forEach(function(id){
-    document.getElementById(id).addEventListener("change", filtrar);
-  });
+  // ── eventos
+  ["q","mun","plantaMin","plantaMax","camasMin","salasMin","consMin","sedesMin"]
+    .forEach(function(id){ $(id).addEventListener("input", function(){ despresetear(); filtrar(); }); });
+  ["fNuevo","fNomina","fContacto","fRep","fLocal"]
+    .forEach(function(id){ $(id).addEventListener("change", function(){ despresetear(); filtrar(); }); });
+
   document.addEventListener("change", function(e){
-    if(e.target.classList.contains("fNat") || e.target.classList.contains("fClase")
-       || e.target.classList.contains("fTend")) filtrar();
+    var t = e.target;
+    if(t.classList.contains("fRegion")){
+      marcarRegion(t.value, t.checked);
+      despresetear(); filtrar();
+    } else if(t.classList.contains("fDep")){
+      // Al desmarcar un departamento suelto, su región deja de estar completa.
+      Object.keys(REGIONES).forEach(function(reg){
+        if(REGIONES[reg].indexOf(t.value) < 0) return;
+        var todos = REGIONES[reg].filter(function(d){ return deps[d]; });
+        var puestos = todos.filter(function(d){
+          var i = document.querySelector('.fDep[value="' + d + '"]');
+          return i && i.checked;
+        });
+        var r = document.querySelector('.fRegion[value="' + reg + '"]');
+        if(r) r.checked = todos.length > 0 && puestos.length === todos.length;
+      });
+      despresetear(); filtrar();
+    } else if(t.classList.contains("fNat") || t.classList.contains("fClase") || t.classList.contains("fTend")){
+      despresetear(); filtrar();
+    }
   });
 
+  $("orden").addEventListener("change", function(){
+    orden = $("orden").value;
+    dir = orden === "razon_social" ? 1 : -1;
+    filtrar();
+  });
+  $("dir").onclick = function(){ dir = -dir; filtrar(); };
   document.querySelectorAll("th.sortable").forEach(function(th){
     th.addEventListener("click", function(){
       var k = th.dataset.k;
-      if(sortKey === k){ sortDir = -sortDir; } else { sortKey = k; sortDir = k === "razon_social" ? 1 : -1; }
-      document.querySelectorAll("th.sortable").forEach(function(o){
-        o.innerHTML = o.innerHTML.replace(/\s*<span class="arrow">.*?<\/span>/, "");
-      });
-      th.innerHTML += ' <span class="arrow">' + (sortDir === 1 ? "▲" : "▼") + "</span>";
+      if(orden === k){ dir = -dir; } else { orden = k; dir = (k === "razon_social") ? 1 : -1; }
       filtrar();
     });
   });
 
-  document.getElementById("tbody").addEventListener("click", function(e){
+  $("tbody").addEventListener("click", function(e){
     var tr = e.target.closest("tr");
     if(!tr) return;
     var id = tr.dataset.id;
@@ -595,26 +884,23 @@
     }
     pintar();
   });
-
-  document.getElementById("selAll").addEventListener("change", function(e){
+  $("selAll").addEventListener("change", function(e){
     vista.slice(0, limite).forEach(function(r){
       if(e.target.checked) sel.add(r[C.nit]); else sel.delete(r[C.nit]);
     });
     pintar();
   });
 
-  document.getElementById("clearSel").onclick = function(){ sel.clear(); pintar(); };
-  document.getElementById("expFiltered").onclick = function(){ csv(vista, "prestadores_filtrado.csv"); };
-  document.getElementById("expSel").onclick = function(){
+  $("clearSel").onclick = function(){ sel.clear(); pintar(); };
+  $("expFiltered").onclick = function(){ csv(vista, "prestadores_filtrado.csv"); };
+  $("expSel").onclick = function(){
     csv(ROWS.filter(function(r){ return sel.has(r[C.nit]); }), "prestadores_seleccion.csv");
   };
-  document.getElementById("reset").onclick = function(){
-    document.querySelectorAll("input[type=search],input[type=number]").forEach(function(i){ i.value = ""; });
-    document.querySelectorAll("input[type=checkbox]").forEach(function(i){ i.checked = false; });
-    Array.prototype.forEach.call(depSel.options, function(o){ o.selected = false; });
-    filtrar();
-  };
+  $("reset").onclick = function(){ limpiar(); filtrar(); };
 
+  // El navegador restaura el estado de los formularios al recargar; se limpia
+  // para que lo que se ve coincida siempre con lo que está aplicado.
+  limpiar();
   filtrar();
 })();
 </script>

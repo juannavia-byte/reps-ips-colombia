@@ -55,6 +55,8 @@ SELECT p.numero_identificacion, p.digito_verificacion, p.razon_social,
        e.personal_estimado, e.fuerza_laboral_bajo, e.fuerza_laboral_alto,
        left(e.metodo, 3),
        e.personal_2019, e.personal_2021, e.crecimiento_pct, e.tendencia,
+       CASE WHEN e.personal_2019 IS NOT NULL AND e.personal_2021 IS NOT NULL
+            THEN e.personal_2021 - e.personal_2019 END AS delta_personas,
        v.fin_ingresos, v.fin_activos, coalesce(nv.n, 0),
        g.deps, g.muns
 FROM reps.prestador p
@@ -73,7 +75,7 @@ COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
         "rep_legal", "telefono", "email", "sedes", "servicios",
         "camas", "salas_cirugia", "consultorios", "ambulancias",
         "planta", "fl_bajo", "fl_alto", "metodo",
-        "planta_2019", "planta_2021", "crecimiento", "tendencia",
+        "planta_2019", "planta_2021", "crecimiento", "tendencia", "delta_personas",
         "ingresos_mm", "activos_mm", "serv_nuevos_12m", "deps", "muns"]
 
 
@@ -98,8 +100,8 @@ def main() -> int:
         for i in (16, 17, 18, 19):          # capacidades
             f[i] = num(f[i])
         f[26] = None if f[26] is None else round(float(f[26]), 1)   # crecimiento %
-        f[28] = num(f[28], 1e6)             # ingresos a millones
-        f[29] = num(f[29], 1e6)             # activos a millones
+        f[29] = num(f[29], 1e6)             # ingresos a millones
+        f[30] = num(f[30], 1e6)             # activos a millones
         filas.append(f)
 
     payload = {"generado": date.today().isoformat(), "cols": COLS, "rows": filas}
