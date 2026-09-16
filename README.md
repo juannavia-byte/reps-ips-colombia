@@ -135,10 +135,28 @@ Se regenera con `python src/build_tablero.py --dsn "$DSN"`.
 
 ## Llevar la base a Supabase
 
-    SUPABASE_DSN='postgresql://postgres:CLAVE@db.XXXX.supabase.co:5432/postgres' ./push_supabase.sh
+    COMPACTAR=1 SUPABASE_DSN='postgresql://...@...:5432/postgres' ./push_supabase.sh
 
-Usa la conexión **directa** (puerto 5432), no el pooler de transacciones (6543):
-`pg_restore` necesita sesión y el pooler la corta.
+Sirve la conexión **directa** o la del *session pooler*, ambas en el puerto 5432.
+La que no sirve es el *transaction pooler* (6543): `pg_restore` necesita sesión y
+ese pooler la corta a la mitad, dejando el esquema incompleto. El script la rechaza
+antes de empezar.
+
+**`COMPACTAR=1` y por qué importa.** El esquema pesa 638 MB en local, por encima
+del límite de 500 MB del plan free. De esos, 339 MB son las llaves `"NO"` repetidas
+en las columnas `modalidades` y `especificidades` de las 228.039 filas de
+`sede_servicio`. El modo compactado las omite al enviar y el esquema queda en
+**232 MB**. En la fuente solo existen los valores `"SI"` y `"NO"` (verificado), así
+que es reversible.
+
+> **Invariante del remoto:** en Supabase, una llave **ausente** en `modalidades` o
+> `especificidades` significa `"NO"`. Las consultas de la forma
+> `especificidades->>'x' = 'SI'` dan el mismo resultado que en local. Las que
+> buscaran `= 'NO'` **no**: allá hay que preguntar por `IS DISTINCT FROM 'SI'`.
+
+El esquema queda en `reps`, que PostgREST no expone por defecto. Si se expone en
+*Settings > API*, hay que activar RLS antes o las tablas quedan legibles con la
+clave anónima.
 
 
 ## Score de ICP
@@ -147,8 +165,11 @@ Cociente **LTV : CAC** por prestador, donde el CAC es esfuerzo y tiempo —
 interlocutores, ciclo, investigación previa, distancia a quien decide — y el LTV es
 el valor de la cuenta completa a 24 meses, no solo la ARL de entrada.
 
-El score es el **percentil** del cociente: 93 significa "está en el 7 % mejor".
-Reparto actual: 10 % alta · 25 % media · 65 % baja.
+El score es el cociente llevado a una escala de **z sobre su logaritmo**, centrada
+en 50 y con 10 puntos por desviación estándar. Se pasó por ahí porque el percentil
+saturaba: cualquier prestador de más de 100 personas caía en el percentil 98 y 361
+cuentas empataban en 100. Hoy hay 609 valores de score distintos.
+Reparto actual: 13,1 % alta · 17,0 % media · 69,9 % baja.
 
 Los pesos viven en `config/pesos_icp.json` y **no hay ninguno escrito en el código**.
 En el tablero hay un panel de sliders para probarlos en vivo; para dejarlos fijos se
