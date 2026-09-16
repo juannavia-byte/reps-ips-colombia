@@ -1,0 +1,36 @@
+{
+  "cargado_en": "2026-09-16T05:34:31.013633+00:00",
+  "prestadores": {
+    "separador": "|",
+    "columnas": 36,
+    "filas": 61177,
+    "malformadas": 2,
+    "entidades": 57663,
+    "registros": 61177,
+    "tipo_documento_derivado": 3968
+  },
+  "sedes": {
+    "separador": ";",
+    "columnas": 47,
+    "filas": 77011,
+    "malformadas": 40,
+    "insertadas": 77009,
+    "huerfanas": 2
+  },
+  "servicios": {
+    "separador": ";",
+    "columnas": 94,
+    "filas": 228169,
+    "malformadas": 3,
+    "insertados": 228039,
+    "huerfanos": 130
+  },
+  "capacidad": {
+    "separador": ";",
+    "columnas": 31,
+    "filas": 97613,
+    "malformadas": 0,
+    "insertados": 97549,
+    "huerfanos": 64
+  }
+}

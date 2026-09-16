@@ -1,0 +1,58 @@
+{
+  "privadas_2021:FT001-01": {
+    "origen": "privada_g1",
+    "filas": 125,
+    "cruzados": 105,
+    "sin_match": 20,
+    "tasa_cruce": 84.0,
+    "agregados_detectados": [
+      "activos",
+      "ingresos",
+      "pasivos",
+      "patrimonio"
+    ],
+    "cabecera_fila": 14
+  },
+  "privadas_2021:FT001-02": {
+    "origen": "privada_g2",
+    "filas": 4097,
+    "cruzados": 3442,
+    "sin_match": 655,
+    "tasa_cruce": 84.01,
+    "agregados_detectados": [
+      "activos",
+      "ingresos",
+      "pasivos",
+      "patrimonio"
+    ],
+    "cabecera_fila": 14
+  },
+  "privadas_2021:FT001-03": {
+    "origen": "privada_g3",
+    "filas": 1493,
+    "cruzados": 1158,
+    "sin_match": 335,
+    "tasa_cruce": 77.56,
+    "agregados_detectados": [
+      "activos",
+      "ingresos",
+      "pasivos",
+      "patrimonio"
+    ],
+    "cabecera_fila": 15
+  },
+  "publicas_2021:IPS_PUBLICAS_DIC_2021": {
+    "origen": "ese",
+    "filas": 919,
+    "cruzados": 916,
+    "sin_match": 3,
+    "tasa_cruce": 99.67,
+    "agregados_detectados": [
+      "activos",
+      "costos",
+      "pasivos",
+      "patrimonio"
+    ],
+    "cabecera_fila": 13
+  }
+}
