@@ -218,6 +218,11 @@ def parece_nombre_web(s: str) -> bool:
     if (CARGO.search(s) or NO_ES_NOMBRE.search(s) or INSTITUCION.search(s)
             or ROTULO.match(s)):
         return False
+    # «Emergencia y Trauma», «Social y Humanitario»: nombres de servicio partidos
+    # en dos líneas. Un nombre colombiano casi nunca lleva conjunción — se pierde
+    # algún «Ortega y Gasset», y a cambio no entran los servicios de la clínica.
+    if re.search(r"\s+[ye]\s+", s, re.I):
+        return False
     toks = re.findall(r"[A-ZÁÉÍÓÚÑ][a-záéíóúñ']+|[A-ZÁÉÍÓÚÑ]{2,}", s)
     if not (2 <= len(toks) <= 5):
         return False

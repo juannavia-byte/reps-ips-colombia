@@ -227,12 +227,12 @@
   td.contacto .mail{display:block; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   /* Se revelan de menos a más importante según quepa: el sobrante se llena con
      dato en vez de repartirse como aire entre las columnas numéricas. */
-  @media (max-width:1800px){ thead th:nth-child(14), tbody td:nth-child(14){display:none} }
-  @media (max-width:1520px){ thead th:nth-child(9),  tbody td:nth-child(9){display:none} }
-  @media (max-width:1360px){ thead th:nth-child(8),  tbody td:nth-child(8){display:none} }
+  @media (min-width:761px) and (max-width:1800px){ thead th:nth-child(14), tbody td:nth-child(14){display:none} }
+  @media (min-width:761px) and (max-width:1520px){ thead th:nth-child(9),  tbody td:nth-child(9){display:none} }
+  @media (min-width:761px) and (max-width:1360px){ thead th:nth-child(8),  tbody td:nth-child(8){display:none} }
   /* Bajo 1150 px la banda de fuerza laboral cede el sitio: es informativa pero
      secundaria frente al score, la planta y el crecimiento. */
-  @media (max-width:1150px){ thead th:nth-child(12), tbody td:nth-child(12){display:none} }
+  @media (min-width:761px) and (max-width:1150px){ thead th:nth-child(12), tbody td:nth-child(12){display:none} }
   table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:100%; min-width:720px}
   thead th{
     position:sticky; top:0; z-index:3; background:var(--surface-3);
@@ -267,7 +267,6 @@
     white-space:nowrap; font-family:var(--mono); font-size:11px;
     font-variant-numeric:tabular-nums; color:var(--muted); text-align:right;
   }
-
 
   /* ─────────────────────────────────────────────────────────────────────────
      PERFIL DEL PRESTADOR
@@ -409,6 +408,63 @@
   }
   details.note code{font-family:var(--mono); font-size:11px; background:var(--surface-2); padding:1px 4px; border-radius:3px}
   details.note b{color:var(--ink)}
+  /* ─────────────────────────────────────────────────────────────────────────
+     MÓVIL
+
+     🔴 EL DESBORDE NO ERA LA TABLA. Medido a 390px: el documento se iba a
+     616px y la tabla —que vive en un contenedor con overflow:auto— no tenía
+     la culpa. Era `.corte` de la cabecera, con `white-space:nowrap` y
+     `margin-left:auto`: al no caber empujaba el ancho del documento entero y
+     dejaba el sitio entero desplazándose de lado.
+
+     Y aparte del desborde, una tabla de 720px en una pantalla de 390 se ve mal
+     aunque desplace bien: se ven dos columnas y hay que arrastrar para leer una
+     fila. Por eso debajo de 760px deja de ser tabla y cada fila pasa a ser una
+     ficha, con el nombre arriba y cada dato con su etiqueta.
+     ───────────────────────────────────────────────────────────────────────── */
+  @media (max-width:760px){
+    .masthead{padding:0 12px; gap:10px}
+    .masthead .brand{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    /* Sin `nowrap`: que se encoja en vez de empujar el documento. */
+    .masthead .corte{margin-left:auto; white-space:normal; flex:0 1 auto; text-align:right}
+
+    .gridwrap{margin:8px 10px 0; overflow-x:hidden}
+    table{min-width:0; width:100%; table-layout:auto; display:block}
+    thead{display:none}
+    tbody{display:block}
+    tbody tr{
+      display:block; border:1px solid var(--line); border-radius:8px;
+      margin:0 0 8px; padding:8px 10px; background:var(--surface);
+    }
+    tbody tr.sel{background:var(--accent-soft); border-color:var(--accent)}
+    tbody td{
+      display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+      border:0; padding:3px 0; background:none; text-align:right;
+    }
+    /* La etiqueta que en escritorio vive en el thead. */
+    tbody td[data-et]::before{
+      content:attr(data-et); color:var(--faint); font-size:11px;
+      text-align:left; flex:0 0 auto; font-family:var(--sans); font-weight:400;
+    }
+    tbody td.c1{
+      display:block; text-align:left; padding:0 0 6px;
+      border-bottom:1px solid var(--line); margin-bottom:5px;
+    }
+    tbody td.c1 .rz{white-space:normal; font-weight:600}
+    tbody td.c0{
+      position:static; display:flex; justify-content:flex-start;
+      padding:0 0 6px; min-width:0;
+    }
+    tbody td.c0::before{content:"Seleccionar"; color:var(--faint); font-size:11px; margin-left:6px}
+    tbody td.geo .dep{display:inline; color:var(--faint)}
+    tbody td.contacto{flex-direction:column; align-items:flex-end}
+    tbody td.contacto .tel, tbody td.contacto .mail{white-space:normal; word-break:break-all}
+
+    /* Lo que el escritorio ya esconde por estrechez tampoco vuelve aquí: en una
+       ficha cabría, pero satura. Todo se ve completo en el perfil. */
+    tbody td[data-et="Quirófanos"], tbody td[data-et="Consultorios"],
+    tbody td[data-et="Serv. nuevos"], tbody td[data-et="Fuerza laboral"]{display:none}
+  }
 </style>
 
 <header class="masthead">
@@ -784,7 +840,6 @@
     };
     $("presets").appendChild(b);
   });
-
 
   // ══════════════════════════════════════════════════════════════════════════
   // SCORE ICP · espejo en el navegador de src/score_icp.py
@@ -1496,21 +1551,21 @@
         '<td class="c0"><input type="checkbox" class="rowchk"' + (sel.has(id) ? " checked" : "") + '></td>' +
         '<td class="c1"><span class="rz" title="' + esc(nom) + '">' + esc(nom) + "</span>" +
           '<span class="meta">NIT ' + esc(id) + (r[C.dv] ? "-" + esc(r[C.dv]) : "") + chips + "</span></td>" +
-        '<td class="num">' + celdaScore(i) + "</td>" +
-        '<td class="geo" title="' + esc(r[C.municipio] || "") + '">' + esc(r[C.municipio] || "·") +
+        '<td class="num" data-et="Score">' + celdaScore(i) + "</td>" +
+        '<td class="geo" data-et="Dónde" title="' + esc(r[C.municipio] || "") + '">' + esc(r[C.municipio] || "·") +
           (r[C.n_mun] > 1 ? " +" + (r[C.n_mun]-1) : "") +
           '<span class="dep">' + esc(r[C.departamento] || "") + "</span></td>" +
-        '<td class="num">' + fmt(r[C.sedes]) + "</td>" +
-        '<td class="num">' + fmt(r[C.camas]) + "</td>" +
-        '<td class="num">' + fmt(r[C.salas_cirugia]) + "</td>" +
-        '<td class="num">' + fmt(r[C.consultorios]) + "</td>" +
-        '<td class="num">' + fmt(r[C.servicios]) + "</td>" +
-        '<td class="num">' + fmt(r[C.planta]) +
+        '<td class="num" data-et="Sedes">' + fmt(r[C.sedes]) + "</td>" +
+        '<td class="num" data-et="Camas">' + fmt(r[C.camas]) + "</td>" +
+        '<td class="num" data-et="Quirófanos">' + fmt(r[C.salas_cirugia]) + "</td>" +
+        '<td class="num" data-et="Consultorios">' + fmt(r[C.consultorios]) + "</td>" +
+        '<td class="num" data-et="Servicios">' + fmt(r[C.servicios]) + "</td>" +
+        '<td class="num" data-et="Planta">' + fmt(r[C.planta]) +
           (r[C.metodo] === "nom" ? ' <span class="chip nom">nómina</span>' : "") + "</td>" +
-        '<td class="num">' + crecimiento(r) + "</td>" +
-        '<td class="band">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
-        '<td class="num">' + (r[C.serv_nuevos_12m] || "·") + "</td>" +
-        '<td class="contacto">' + contacto(r) + "</td>" +
+        '<td class="num" data-et="Crec. 19→21">' + crecimiento(r) + "</td>" +
+        '<td class="band" data-et="Fuerza laboral">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
+        '<td class="num" data-et="Serv. nuevos">' + (r[C.serv_nuevos_12m] || "·") + "</td>" +
+        '<td class="contacto" data-et="Contacto">' + contacto(r) + "</td>" +
         "</tr>";
     }).join("");
 
