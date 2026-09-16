@@ -44,10 +44,6 @@
       "dispersion_geografica": {
         "peso": 0.9,
         "_nota": "Cuantos departamentos toca. Mide dos cosas a la vez: costo de desplazamiento y probabilidad de que la decision este en un corporativo lejos de la sede local."
-      },
-      "perfilamiento_faltante": {
-        "peso": 0.5,
-        "_nota": "Cuantos de los tres datos de contacto faltan (telefono, correo, representante legal)."
       }
     },
     "estructura": {
@@ -75,7 +71,15 @@
         "ciclo": 2.0,
         "_nota": "Una ESE suma junta directiva y proceso reglado."
       }
-    }
+    },
+    "_auditoria_v5": [
+      "Se elimino el termino 'perfilamiento_faltante'. Medido sobre las 10.652 filas:",
+      "el 99,8 % tiene los tres datos de contacto (telefono 99,9 %, correo 100 %,",
+      "representante legal 99,9 %), asi que el termino valia cero para casi todos y no",
+      "diferenciaba nada. Es el mismo defecto que tenian los tramos de planta en la v1:",
+      "una variable en el modelo que en la practica es una constante.",
+      "El REPS exige datos de contacto para habilitar, por eso siempre estan."
+    ]
   },
   "ltv": {
     "_que_mide": "Comision esperada de la escalera completa de ramos a 24 meses.",
@@ -418,7 +422,7 @@
   },
   "escala": {
     "modo": "z_log",
-    "centro": -1.395,
+    "centro": -1.394,
     "dispersion": 0.798,
     "puntos_por_sigma": 10,
     "centro_score": 50,

@@ -81,7 +81,12 @@
   @media (max-width:900px){
     body{overflow:auto}
     .shell{grid-template-columns:1fr; height:auto}
-    .rail{border-right:0; border-bottom:1px solid var(--line-strong); overflow:visible}
+    /* Apilado, el panel completo mide ~1.600 px y habia que bajar muchisimo antes
+       de ver una sola fila. Se acota a 40 % de la pantalla y scrollea aparte. */
+    .rail{
+      border-right:0; border-bottom:1px solid var(--line-strong);
+      max-height:40vh; overflow-y:auto;
+    }
     .main{overflow:visible}
   }
 
@@ -225,7 +230,10 @@
   @media (max-width:1800px){ thead th:nth-child(14), tbody td:nth-child(14){display:none} }
   @media (max-width:1520px){ thead th:nth-child(9),  tbody td:nth-child(9){display:none} }
   @media (max-width:1360px){ thead th:nth-child(8),  tbody td:nth-child(8){display:none} }
-  table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:100%; min-width:900px}
+  /* Bajo 1150 px la banda de fuerza laboral cede el sitio: es informativa pero
+     secundaria frente al score, la planta y el crecimiento. */
+  @media (max-width:1150px){ thead th:nth-child(12), tbody td:nth-child(12){display:none} }
+  table{border-collapse:separate; border-spacing:0; table-layout:fixed; width:100%; min-width:720px}
   thead th{
     position:sticky; top:0; z-index:3; background:var(--surface-3);
     font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
@@ -376,8 +384,7 @@
       <div class="checks">
         <label class="check"><input type="checkbox" id="fNuevo"> Habilitó servicio nuevo (12 m)</label>
         <label class="check"><input type="checkbox" id="fNomina"> Planta medida con nómina real</label>
-        <label class="check"><input type="checkbox" id="fContacto"> Tiene teléfono o correo</label>
-        <label class="check"><input type="checkbox" id="fRep"> Tiene representante legal</label>
+        <label class="check"><input type="checkbox" id="fCorreo"> Correo propio (no gmail/hotmail)</label>
         <label class="check"><input type="checkbox" id="fLocal"> No es red nacional (≤3 deptos)</label>
       </div>
     </div>
@@ -502,8 +509,10 @@
   }
   function corto(n){
     if(n == null) return "·";
-    if(n >= 1e6) return (n/1e6).toFixed(1).replace(".", ",") + " M";
-    if(n >= 10000) return Math.round(n/1000) + " mil";
+    // Sin espacio antes de la unidad: con "295 mil–1,2 M" la tarjeta de fuerza
+    // laboral se cortaba a 1280 px.
+    if(n >= 1e6) return (n/1e6).toFixed(1).replace(".", ",") + "M";
+    if(n >= 10000) return Math.round(n/1000) + "k";
     return n.toLocaleString("es-CO");
   }
   function esc(s){
@@ -512,6 +521,34 @@
     });
   }
   var $ = function(id){ return document.getElementById(id); };
+
+  // Dominio del correo registrado. Se quitaron los filtros "tiene teléfono" y
+  // "tiene representante legal" porque el 99,8 % los tiene y no excluían nada.
+  // Este sí parte la base: 64,5 % usa gmail/hotmail y 35,5 % dominio propio, y
+  // los segundos tienen planta media 47 contra 8,5 de los primeros. Es el mejor
+  // indicador disponible de si enfrente hay una organización o un consultorio.
+  // Los municipios colombianos llevan tilde (MONTERÍA, MEDELLÍN, CÚCUTA) y nadie
+  // las teclea al buscar. Sin esto, escribir "monteria" devolvía cero resultados.
+  function sinTildes(t){
+    return String(t == null ? "" : t).normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+  // Normalizar 10.652 razones sociales en cada tecleo sería lento; se cachea.
+  var _buscable = new WeakMap();
+  function textoBuscable(r){
+    var v = _buscable.get(r);
+    if(v === undefined){
+      v = {nom: sinTildes(r[C.razon_social]), mun: sinTildes(r[C.muns])};
+      _buscable.set(r, v);
+    }
+    return v;
+  }
+
+  var CORREO_PERSONAL = /@(gmail|hotmail|outlook|yahoo|live|icloud)\./i;
+  function correoPropio(r){
+    var m = r[C.email];
+    return !!m && !CORREO_PERSONAL.test(String(m));
+  }
 
   $("corte").textContent = "REPS 16-sep-2026 · " + ROWS.length.toLocaleString("es-CO") + " entidades";
 
@@ -616,8 +653,8 @@
      set:function(){ marcarRegion("Costa Caribe", true); marcar("fClase","Inst"); $("plantaMin").value = 50; }},
     {t:"Hospitalarias con quirófano", d:"30 camas o más y al menos una sala de cirugía",
      set:function(){ $("camasMin").value = 30; $("salasMin").value = 1; }},
-    {t:"Creciendo y contactables", d:"Planta al alza 2019→2021, con teléfono o correo",
-     set:function(){ marcar("fTend","creciendo"); $("fContacto").checked = true; }},
+    {t:"Creciendo y formalizadas", d:"Planta al alza 2019→2021 y con correo propio",
+     set:function(){ marcar("fTend","creciendo"); $("fCorreo").checked = true; }},
     {t:"Con novedad en el REPS", d:"Habilitaron un servicio nuevo en los últimos 12 meses",
      set:function(){ $("fNuevo").checked = true; marcar("fClase","Inst"); }},
     {t:"Medianas locales", d:"50 a 500 personas, máximo 3 departamentos",
@@ -680,13 +717,10 @@
     var ciclo = esc.ciclo_base + esc.c_dispersion * log2p(municipios) + esc.c_tamano * log2p(tam);
     if(esEse){ inter += esc.recargo_ese.interlocutores; ciclo += esc.recargo_ese.ciclo; }
 
-    var faltan = (r[C.telefono] ? 0 : 1) + (r[C.email] ? 0 : 1) + (r[C.rep_legal] ? 0 : 1);
-
     var cac = cfg.cac.esfuerzo_base
       + pc.interlocutores.peso * inter
       + pc.ciclo.peso * ciclo
-      + pc.dispersion_geografica.peso * log2p(deptos)
-      + pc.perfilamiento_faltante.peso * faltan;
+      + pc.dispersion_geografica.peso * log2p(deptos);
 
     // LTV = comisión esperada de la escalera completa de ramos a 24 meses.
     // Por ramo: valor_relativo x probabilidad x norm(exposición).
@@ -797,8 +831,6 @@
      d: "Crece con los municipios en los que opera."},
     {ruta: "cac.pesos.dispersion_geografica.peso", t: "Dispersión geográfica", max: 3,
      d: "Departamentos: desplazamiento y distancia a quien decide."},
-    {ruta: "cac.pesos.perfilamiento_faltante.peso", t: "Datos de contacto que faltan", max: 3,
-     d: "Investigación previa por cada dato ausente."},
     {g: "CAC · cómo pesa la estructura"},
     {ruta: "cac.estructura.k_sedes", t: "Sedes → interlocutores", max: 2,
      d: "Cuánto suma cada duplicación de sedes al número de personas a convencer."},
@@ -894,8 +926,8 @@
   }
 
   function filtrar(){
-    var q = $("q").value.trim().toLowerCase();
-    var mun = $("mun").value.trim().toLowerCase();
+    var q = sinTildes($("q").value.trim());
+    var mun = sinTildes($("mun").value.trim());
     var depsOn = marcados("fDep"), natsOn = marcados("fNat");
     var clasesOn = marcados("fClase"), tendsOn = marcados("fTend");
     var priosOn = marcados("fPrio");
@@ -903,11 +935,15 @@
     var cMin = val("camasMin"), sMin = val("salasMin");
     var coMin = val("consMin"), seMin = val("sedesMin");
     var oNuevo = $("fNuevo").checked, oNomina = $("fNomina").checked;
-    var oCont = $("fContacto").checked, oRep = $("fRep").checked, oLocal = $("fLocal").checked;
+    var oCorreo = $("fCorreo").checked, oLocal = $("fLocal").checked;
 
     vista = ROWS.filter(function(r){
-      if(q && (r[C.razon_social]||"").toLowerCase().indexOf(q) < 0 && (r[C.nit]||"").indexOf(q) < 0) return false;
-      if(mun && (r[C.muns]||"").toLowerCase().indexOf(mun) < 0) return false;
+      if(q){
+        var t = textoBuscable(r);
+        if(t.nom.indexOf(q) < 0 && (r[C.nit] || "").indexOf(q) < 0) return false;
+      }
+      // Geografía por presencia: se busca en TODAS sus sedes, no solo en la principal.
+      if(mun && textoBuscable(r).mun.indexOf(mun) < 0) return false;
       if(depsOn.length){
         var suyos = "|" + (r[C.deps]||"") + "|";
         if(!depsOn.some(function(d){ return suyos.indexOf("|" + d + "|") >= 0; })) return false;
@@ -924,8 +960,7 @@
       if(seMin != null && (r[C.sedes]||0) < seMin) return false;
       if(oNuevo && !r[C.serv_nuevos_12m]) return false;
       if(oNomina && r[C.metodo] !== "nom") return false;
-      if(oCont && !r[C.telefono] && !r[C.email]) return false;
-      if(oRep && !r[C.rep_legal]) return false;
+      if(oCorreo && !correoPropio(r)) return false;
       if(oLocal && (r[C.n_dep]||1) > 3) return false;
       return true;
     });
@@ -976,8 +1011,8 @@
       .forEach(function(p){
         if($(p[0]).value !== "") add(p[1] + $(p[0]).value, function(){ $(p[0]).value = ""; });
       });
-    [["fNuevo","servicio nuevo 12 m"],["fNomina","nómina real"],["fContacto","con contacto"],
-     ["fRep","con rep. legal"],["fLocal","≤ 3 departamentos"]].forEach(function(p){
+    [["fNuevo","servicio nuevo 12 m"],["fNomina","nómina real"],
+     ["fCorreo","correo propio"],["fLocal","≤ 3 departamentos"]].forEach(function(p){
       if($(p[0]).checked) add(p[1], function(){ $(p[0]).checked = false; });
     });
 
@@ -1130,7 +1165,7 @@
   // ── exportación
   var EXPORT = [
     ["nit","nit"],["dv","digito_verificacion"],["razon_social","razon_social"],
-    ["clase","clase_prestador"],["naturaleza","naturaleza_juridica"],["ese","es_ese"],
+    ["_clase","clase_prestador"],["naturaleza","naturaleza_juridica"],["_ese","es_ese"],
     ["nivel","nivel_atencion"],["departamento","departamento_sede_principal"],
     ["municipio","municipio_sede_principal"],["n_mun","municipios_con_sede"],
     ["n_dep","departamentos_con_sede"],["deps","departamentos_lista"],
@@ -1152,8 +1187,11 @@
       return EXPORT.map(function(p){
         // Score y prioridad salen de lo recalculado en pantalla: lo que se
         // exporta es exactamente lo que se está viendo.
+        // Los códigos internos no sirven en un CSV que va a HubSpot.
         var v = p[0] === "_score" ? SCORE[r._i].toFixed(1)
               : p[0] === "_prioridad" ? PRIOR[r._i]
+              : p[0] === "_clase" ? (CLASES[r[C.clase]] || r[C.clase])
+              : p[0] === "_ese" ? (r[C.ese] === 1 ? "SI" : "NO")
               : r[C[p[0]]];
         if(v == null) return "";
         v = String(v);
@@ -1171,7 +1209,7 @@
   // ── eventos
   ["q","mun","plantaMin","plantaMax","camasMin","salasMin","consMin","sedesMin"]
     .forEach(function(id){ $(id).addEventListener("input", function(){ despresetear(); filtrar(); }); });
-  ["fNuevo","fNomina","fContacto","fRep","fLocal"]
+  ["fNuevo","fNomina","fCorreo","fLocal"]
     .forEach(function(id){ $(id).addEventListener("change", function(){ despresetear(); filtrar(); }); });
 
   document.addEventListener("change", function(e){

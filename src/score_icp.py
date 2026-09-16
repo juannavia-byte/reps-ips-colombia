@@ -215,13 +215,10 @@ def calcular(fila: dict, cfg: dict) -> dict:
         interlocutores += esc["recargo_ese"]["interlocutores"]
         ciclo += esc["recargo_ese"]["ciclo"]
 
-    faltantes = sum(1 for k in ("tel", "mail", "rep") if not fila[k])
-
     aportes_cac = {
         "interlocutores": pc["interlocutores"]["peso"] * interlocutores,
         "ciclo": pc["ciclo"]["peso"] * ciclo,
         "dispersion_geografica": pc["dispersion_geografica"]["peso"] * log2p(deptos),
-        "perfilamiento_faltante": pc["perfilamiento_faltante"]["peso"] * faltantes,
     }
     cac = cac_cfg["esfuerzo_base"] + sum(aportes_cac.values())
 
@@ -324,7 +321,6 @@ def calcular(fila: dict, cfg: dict) -> dict:
                     "base": cac_cfg["esfuerzo_base"],
                     "interlocutores_estimados": round(interlocutores, 2),
                     "ciclo_meses_estimado": round(ciclo, 2),
-                    "datos_de_contacto_faltantes": faltantes,
                     "estructura": {"sedes": sedes, "municipios": municipios,
                                    "departamentos": deptos,
                                    "personas_por_sede": round(planta / sedes, 1)}},
