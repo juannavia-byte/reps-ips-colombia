@@ -41,6 +41,7 @@ import concurrent.futures as futuros
 import html as escapes
 import json
 import re
+import socket
 import time
 import urllib.error
 import urllib.parse
@@ -51,6 +52,18 @@ import psycopg
 
 from enriquecer import (DOMINIOS_PERSONALES, ambito_correo, clasificar,
                         clave_nombre, parece_persona, sin_tildes)
+
+# 🔴 UN SOCKET SIN PLAZO CUELGA UN HILO PARA SIEMPRE.
+#
+# `RobotFileParser.read()` no acepta timeout y usa el de por defecto, que es
+# «esperar indefinidamente». Un servidor que acepta la conexión TCP y luego no
+# contesta —hay muchos— dejaba ese hilo bloqueado sin salida. Con ocho hilos
+# bastaban ocho sitios así para paralizar la corrida entera: iba a seis sitios
+# por minuto y acabó en menos de uno, con el proceso vivo y sin avanzar.
+#
+# Esto pone plazo a TODA operación de socket del proceso, incluida la que no
+# deja pasarle uno.
+socket.setdefaulttimeout(20)
 
 UA = "Mozilla/5.0 (compatible; AriadBot/1.0; +https://proactivos.com.co/herramientas)"
 CABECERAS = {"User-Agent": UA, "Accept-Language": "es-CO,es;q=0.9"}
@@ -136,9 +149,15 @@ def bajar(url: str, espera: int = ESPERA) -> str | None:
 
 def permitido(base: str) -> bool:
     rp = urllib.robotparser.RobotFileParser()
-    rp.set_url(urllib.parse.urljoin(base, "/robots.txt"))
+    url = urllib.parse.urljoin(base, "/robots.txt")
+    rp.set_url(url)
     try:
-        rp.read()
+        # Se baja a mano en vez de con rp.read(), que no admite plazo. El
+        # cinturón del `setdefaulttimeout` sigue puesto; esto son los tirantes,
+        # y además permite un plazo más corto para un archivo que es diminuto.
+        req = urllib.request.Request(url, headers=CABECERAS)
+        with urllib.request.urlopen(req, timeout=8) as fh:
+            rp.parse(fh.read(200_000).decode("utf-8", "ignore").splitlines())
     except Exception:
         # Sin robots.txt legible se procede: la ausencia no es una prohibición.
         return True
@@ -260,6 +279,11 @@ def extraer(lineas):
             if 0 <= j < len(lineas) and parece_nombre_web(lineas[j]):
                 nombre = re.sub(r"^(Dr\.?a?|Dra\.?|Ing\.?|Lic\.?|Esp\.?)\s+", "",
                                 lineas[j], flags=re.I).strip()
+                # Algunas fichas rotulan el campo: «Cargo: Directora de
+                # Programa». El rótulo no es parte del cargo y ensucia la
+                # columna que después se lee para decidir a quién llamar.
+                cargo_limpio = re.sub(r"^(cargo|puesto|rol|perfil)\s*:\s*", "",
+                                      l.strip(" -–—:·|"), flags=re.I).strip()
                 if parece_persona(nombre):
                     # El correo más cercano, si lo hay en las dos líneas de al lado.
                     correo = None
@@ -268,7 +292,7 @@ def extraer(lineas):
                         if m:
                             correo = m.group(0).lower()
                             break
-                    salida.append((nombre, l.strip(" -–—:·|"), correo))
+                    salida.append((nombre, cargo_limpio, correo))
                 break
     return salida
 
