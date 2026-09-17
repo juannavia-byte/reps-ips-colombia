@@ -202,6 +202,15 @@ NO_ES_NOMBRE = re.compile(
 
 # Rótulos de navegación. «Quiénes Somos» son dos palabras capitalizadas y sin
 # esto entraba como el nombre de una persona.
+# Nombres de servicio del propio REPS y muletillas de marketing. «Consulta
+# Externa» son dos palabras capitalizadas y entraba como persona; la lista de
+# servicios no se inventa, son los grupos que el registro ya usa.
+SERVICIO = re.compile(
+    r"\b(consulta\s+externa|atenci[oó]n\s+inmediata|internaci[oó]n|"
+    r"quir[uú]rgic|apoyo\s+diagn[oó]stico|transporte\s+asistencial|"
+    r"protecci[oó]n\s+espec[ií]fica|detecci[oó]n\s+temprana|extramural|"
+    r"vanguardia|excelencia|calidez|bienestar|trayectoria|compromiso)\b", re.I)
+
 ROTULO = re.compile(
     r"^\s*(qui[eé]nes\s+somos|nuestro\s+equipo|sobre\s+nosotros|nuestra\s+"
     r"historia|misi[oó]n|visi[oó]n|valores|cont[aá]ctenos|cont[aá]ctanos|"
@@ -236,7 +245,7 @@ def parece_nombre_web(s: str) -> bool:
         return False
     # Si la línea nombra un rol o una institución, no es el nombre de alguien.
     if (CARGO.search(s) or NO_ES_NOMBRE.search(s) or INSTITUCION.search(s)
-            or ROTULO.match(s)):
+            or ROTULO.match(s) or SERVICIO.search(s)):
         return False
     # «Emergencia y Trauma», «Social y Humanitario»: nombres de servicio partidos
     # en dos líneas. Un nombre colombiano casi nunca lleva conjunción — se pierde
@@ -282,8 +291,10 @@ def extraer(lineas):
                 # Algunas fichas rotulan el campo: «Cargo: Directora de
                 # Programa». El rótulo no es parte del cargo y ensucia la
                 # columna que después se lee para decidir a quién llamar.
-                cargo_limpio = re.sub(r"^(cargo|puesto|rol|perfil)\s*:\s*", "",
-                                      l.strip(" -–—:·|"), flags=re.I).strip()
+                cargo_limpio = re.sub(
+                    r"^(cargo|puesto|rol|perfil|responsable|encargad[oa]|"
+                    r"contacto|nombre)\s*:\s*", "",
+                    l.strip(" -–—:·|"), flags=re.I).strip()
                 if parece_persona(nombre):
                     # El correo más cercano, si lo hay en las dos líneas de al lado.
                     correo = None

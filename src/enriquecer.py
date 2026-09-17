@@ -90,10 +90,20 @@ CARGOS = [
     (4, "talento_humano",      r"TALENTO\s+HUMANO|GESTI[OÓ]N\s+HUMANA|RECURSOS\s+HUMANOS"),
 ]
 
+# 🔴 EL `\b` FINAL ERA EL FALLO. «FUNDACI\b» NO casa con «FUNDACIÓN»: la Ó es
+# letra, así que ahí no hay frontera de palabra. Ocho razones sociales entraron
+# como personas por eso —«FUNDACIÓN MUJER Y FUTURO», «FUNDACION AMOR Y VIDA»—
+# y el defecto estaba desde el primer día, invisible porque las formas sin
+# tilde sí casaban.
+#
+# Las raíces van sin frontera final (son prefijos a propósito) y las siglas la
+# conservan, para que «IPS» no case dentro de otra palabra.
 SUFIJOS_EMPRESA = re.compile(
-    r"\b(S\.?A\.?S?|LTDA|E\.?S\.?E|E\.?U|IPS|EPS|SOCIEDAD|FUNDACI|CORPORACI|"
-    r"ASOCIACI|COOPERATIV|HOSPITAL|CLINICA|CENTRO|INSTITUTO|UNIDAD|LABORATORIO|"
-    r"EMPRESA|CAJA|SUCURSAL|S\.?C\.?A)\b", re.I)
+    r"(\b(S\.?A\.?S?|LTDA|E\.?S\.?E|E\.?U|IPS|EPS|S\.?C\.?A)\b"
+    r"|\b(SOCIEDAD|FUNDACI|CORPORACI|ASOCIACI|COOPERATIV|HOSPITAL|CLINIC|"
+    r"CL[IÍ]NIC|CENTRO|INSTITUT|UNIDAD|LABORATORI|EMPRESA|CAJA|SUCURSAL|"
+    r"HOGAR|CASA\s+DE|UNIVERSIDAD|COLEGIO|ESCUELA|COMITE|COMIT[EÉ]|"
+    r"CONSORCIO|UNION\s+TEMPORAL|MISION|MISI[OÓ]N|ONG))", re.I)
 
 
 # ── Utilidades ───────────────────────────────────────────────────────────────
