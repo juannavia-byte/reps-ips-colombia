@@ -37,6 +37,7 @@ Cómo se comporta
 from __future__ import annotations
 
 import argparse
+import concurrent.futures as futuros
 import html as escapes
 import json
 import re
@@ -398,6 +399,10 @@ def main() -> int:
     ap.add_argument("--dsn", required=True)
     ap.add_argument("--prioridad", choices=["alta", "media", "baja"])
     ap.add_argument("--limite", type=int)
+    ap.add_argument("--hilos", type=int, default=8,
+                    help="sitios DISTINTOS en paralelo (nunca dos al mismo host)")
+    ap.add_argument("--reintentar-todo", action="store_true",
+                    help="vuelve a visitar sitios ya visitados en corridas anteriores")
     ap.add_argument("--simular", action="store_true")
     args = ap.parse_args()
 
@@ -421,11 +426,36 @@ def main() -> int:
         d = dominio_valido(dom)
         if d:
             objetivo.append((pid, razon, d))
+
+    if not args.reintentar_todo:
+        with cx.cursor() as cur:
+            cur.execute("SELECT prestador_id FROM enriquecimiento.sitio_visitado")
+            hechos = {r[0] for r in cur.fetchall()}
+        antes = len(objetivo)
+        objetivo = [o for o in objetivo if o[0] not in hechos]
+        if antes != len(objetivo):
+            print("── %d sitios ya visitados en corridas anteriores, se saltan"
+                  % (antes - len(objetivo)))
+
+    # Un host una sola vez por corrida. Dos empresas pueden compartir dominio
+    # —grupos clínicos con varias IPS bajo la misma web— y pedirle lo mismo dos
+    # veces a la vez es exactamente lo que el paralelismo no debe hacer.
+    vistos_dom, unicos = set(), []
+    for pid, razon, d in objetivo:
+        if d in vistos_dom:
+            continue
+        vistos_dom.add(d)
+        unicos.append((pid, razon, d))
+    if len(unicos) != len(objetivo):
+        print("── %d empresas comparten dominio con otra; se visita una vez"
+              % (len(objetivo) - len(unicos)))
+    objetivo = unicos
+
     if args.limite:
         objetivo = objetivo[:args.limite]
 
-    print("── %d empresas con dominio propio utilizable (de %d con correo)"
-          % (len(objetivo), len(filas)))
+    print("── %d sitios por visitar (de %d empresas con correo) · %d en paralelo"
+          % (len(objetivo), len(filas), args.hilos))
     if args.simular:
         print("   (simulación: no se tocó la red)")
         return 0
@@ -441,22 +471,63 @@ def main() -> int:
         corrida = cur.fetchone()[0]
     cx.commit()
 
-    for n, (pid, razon, dom) in enumerate(objetivo, 1):
-        personas, correos, vistas, motivo = rastrear(dom, stats)
-        if motivo == "sin respuesta":
-            sin_respuesta += 1
-        elif motivo:
-            bloqueados += 1
-        if personas or correos:
-            a, b = guardar(cx, pid, dom, personas, correos, "https://%s/" % dom)
+    """
+    La red va en paralelo; la base, no.
+
+    Bajar un sitio es casi todo espera: DNS, TLS, el servidor pensando. Con un
+    solo hilo el proceso está parado la mayor parte del tiempo. Ocho hilos
+    contra ocho HOSTS DISTINTOS no es martillear a nadie — la cortesía es por
+    servidor, y cada sitio sigue recibiendo sus peticiones de una en una y con
+    pausa, exactamente igual que antes.
+
+    Lo que NO se paraleliza es escribir: una sola conexión, desde este hilo, a
+    medida que llegan los resultados. Repartir la escritura entre hilos obliga
+    a una conexión por hilo y a lidiar con interbloqueos en las tablas, a
+    cambio de nada: guardar es microsegundos frente a los segundos que cuesta
+    bajar un sitio.
+    """
+    hecho = 0
+    with futuros.ThreadPoolExecutor(max_workers=args.hilos) as pool:
+        pendientes = {pool.submit(rastrear, dom, stats): (pid, razon, dom)
+                      for pid, razon, dom in objetivo}
+        for fut in futuros.as_completed(pendientes):
+            pid, razon, dom = pendientes[fut]
+            hecho += 1
+            try:
+                personas, correos, vistas, motivo = fut.result()
+            except Exception as e:
+                personas, correos, vistas, motivo = [], [], 0, "error: %s" % e
+
+            if motivo == "sin respuesta":
+                sin_respuesta += 1
+                resultado = "sin_respuesta"
+            elif motivo:
+                bloqueados += 1
+                resultado = "robots"
+            else:
+                resultado = "ok"
+
+            if personas or correos:
+                a, b = guardar(cx, pid, dom, personas, correos, "https://%s/" % dom)
+                total_personas += a
+                total_canales += b
+                if personas:
+                    con_personas += 1
+            with cx.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO enriquecimiento.sitio_visitado
+                      (prestador_id, dominio, resultado, personas, paginas)
+                    VALUES (%s,%s,%s,%s,%s)
+                    ON CONFLICT (prestador_id) DO UPDATE SET
+                      resultado=excluded.resultado, personas=excluded.personas,
+                      paginas=excluded.paginas, visitado_en=now()
+                """, (pid, dom, resultado, len(personas), vistas))
             cx.commit()
-            total_personas += a
-            total_canales += b
-            if personas:
-                con_personas += 1
-        if n % 25 == 0 or n == len(objetivo):
-            print("   %4d/%d · %d sitios con personas · %d personas · %d canales"
-                  % (n, len(objetivo), con_personas, total_personas, total_canales))
+
+            if hecho % 50 == 0 or hecho == len(objetivo):
+                print("   %5d/%d · %d con personas · %d personas · %d canales"
+                      % (hecho, len(objetivo), con_personas, total_personas, total_canales),
+                      flush=True)
 
     with cx.cursor() as cur:
         cur.execute("""UPDATE enriquecimiento.corrida
