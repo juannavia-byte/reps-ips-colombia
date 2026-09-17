@@ -19,7 +19,7 @@ from datetime import date
 
 import psycopg
 
-from build_tablero import COLS, CONSULTA
+from build_tablero import COLS, CONSULTA, leer_contactos
 
 
 def construir_payload(dsn: str) -> dict:
@@ -50,8 +50,12 @@ def construir_payload(dsn: str) -> dict:
         Path(__file__).resolve().parent.parent
         .joinpath("config/pesos_icp.json").read_text(encoding="utf-8"))
 
+    cx2 = psycopg.connect(dsn)
+    contactos = leer_contactos(cx2)
+    cx2.close()
+
     return {"generado": date.today().isoformat(), "cols": COLS,
-            "rows": filas, "pesos_icp": pesos}
+            "rows": filas, "pesos_icp": pesos, "contactos": contactos}
 
 
 def main() -> int:

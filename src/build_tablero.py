@@ -134,6 +134,49 @@ COLS = ["nit", "dv", "razon_social", "clase", "naturaleza", "ese",
         "sedes_mun"]
 
 
+CONSULTA_CONTACTOS = """
+SELECT p.numero_identificacion,
+  jsonb_agg(jsonb_build_array(
+      pe.nombre, pe.cargo, pe.tier, pe.estado, pe.confianza,
+      coalesce((SELECT jsonb_agg(jsonb_build_array(
+                         ca.tipo, ca.valor, ca.ambito, ca.estado, ca.confianza)
+                       ORDER BY ca.confianza DESC)
+                FROM enriquecimiento.canal ca
+                WHERE ca.persona_id = pe.id), '[]'::jsonb))
+    ORDER BY coalesce(pe.tier, 9), pe.confianza DESC) AS gente
+FROM enriquecimiento.persona pe
+JOIN reps.prestador p ON p.id = pe.prestador_id
+WHERE pe.estado <> 'obsoleto'
+  AND NOT EXISTS (SELECT 1 FROM enriquecimiento.exclusion x
+                  WHERE x.prestador_id = pe.prestador_id
+                     OR x.nombre_clave = pe.nombre_clave)
+GROUP BY 1
+"""
+
+
+def leer_contactos(cx) -> dict:
+    """
+    Personas y canales por NIT, para que el perfil los muestre sin consultar.
+
+    Va en el payload y no en una llamada aparte por dos razones: la herramienta
+    tiene que seguir funcionando como archivo suelto sin red, y son 478 kB sobre
+    3,9 MB — más barato que montar un endpoint y su autenticación.
+
+    Los obsoletos y los excluidos NO salen. La lista de exclusión se aplica acá
+    además de en la exportación: si alguien pidió no ser contactado, tampoco
+    tiene por qué seguir apareciendo en pantalla.
+    """
+    try:
+        with cx.cursor() as cur:
+            cur.execute(CONSULTA_CONTACTOS)
+            return {nit: gente for nit, gente in cur.fetchall()}
+    except Exception:
+        # El esquema de enriquecimiento puede no existir todavía: el tablero
+        # tiene que poder generarse igual, sólo que sin la sección de contactos.
+        cx.rollback()
+        return {}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dsn", required=True)
@@ -164,8 +207,12 @@ def main() -> int:
 
     pesos = json.loads((raiz_cfg := Path(__file__).resolve().parent.parent)
                        .joinpath("config/pesos_icp.json").read_text(encoding="utf-8"))
+    cx2 = psycopg.connect(args.dsn)
+    contactos = leer_contactos(cx2)
+    cx2.close()
+
     payload = {"generado": date.today().isoformat(), "cols": COLS, "rows": filas,
-               "pesos_icp": pesos}
+               "pesos_icp": pesos, "contactos": contactos}
     crudo = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
     raiz = raiz_cfg
@@ -187,7 +234,7 @@ def main() -> int:
     destino = salida / "tablero.html"
     destino.write_text(unico, encoding="utf-8")
 
-    print(f"· {len(filas):,} prestadores")
+    print(f"· {len(filas):,} prestadores · {len(contactos):,} con contactos")
     print(f"· tablero/datos.js      {(raiz / 'tablero' / 'datos.js').stat().st_size/1e6:.2f} MB")
     print(f"· {destino}  {destino.stat().st_size/1e6:.2f} MB  (archivo único, doble clic)")
     return 0

@@ -408,6 +408,25 @@
   }
   details.note code{font-family:var(--mono); font-size:11px; background:var(--surface-2); padding:1px 4px; border-radius:3px}
   details.note b{color:var(--ink)}
+
+  /* Quién decide: las personas del motor de enriquecimiento. */
+  .perfil .gente{display:flex; flex-direction:column; gap:1px}
+  .perfil .quien{padding:7px 0; border-bottom:1px solid var(--line)}
+  .perfil .quien:last-child{border-bottom:0}
+  .perfil .quien .cab2{display:flex; justify-content:space-between; gap:8px; align-items:baseline}
+  .perfil .quien .nom{font-size:12.5px; font-weight:600}
+  .perfil .quien .car{font-size:11px; color:var(--muted); display:block; margin-top:1px}
+  .perfil .quien .vias{display:flex; flex-direction:column; gap:2px; margin-top:4px}
+  .perfil .quien .via{font-family:var(--mono); font-size:11px; display:flex; gap:6px;
+    align-items:baseline; flex-wrap:wrap; word-break:break-all}
+  .perfil .quien .via a{color:var(--accent-ink)}
+  .perfil .marca2{
+    font-family:var(--sans); font-size:9.5px; padding:1px 5px; border-radius:99px;
+    border:1px solid var(--line-strong); color:var(--faint); white-space:nowrap;
+  }
+  .perfil .marca2.si{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink)}
+  .perfil .marca2.duda{border-color:var(--warn); background:var(--warn-soft); color:var(--warn)}
+
   /* ─────────────────────────────────────────────────────────────────────────
      MÓVIL
 
@@ -1374,6 +1393,60 @@
       h += '<section><h3>Lo que mueve el LTV</h3><div class="barras">' +
         mults.map(function(x){ return filaBarra(x.k, x.d, x.v, maxMul, true); }).join("") +
         "</div></section>";
+    }
+
+    /* ── Quién decide ───────────────────────────────────────────────────────
+       Las personas que encontró el motor de enriquecimiento, con su cargo y
+       sus vías de contacto.
+
+       Cada dato lleva SU propia marca, no la de la persona: el nombre puede
+       estar confirmado por dos fuentes oficiales y el correo ser una conjetura
+       de patrón. Pintarlos con la misma confianza sería mentir justo donde la
+       mentira cuesta — una secuencia contra un buzón inventado quema el
+       dominio desde el que se escribe.
+       ──────────────────────────────────────────────────────────────────── */
+    var GENTE = (window.DATOS.contactos || {})[id] || [];
+    if(GENTE.length){
+      var porTier = {1:"decide", 2:"presupuesto", 3:"vive el problema", 4:"ruta alterna"};
+      h += "<section><h3>Quién decide · " + GENTE.length +
+        (GENTE.length === 1 ? " persona" : " personas") + '</h3><div class="gente">' +
+        GENTE.map(function(g){
+          var nombre = g[0], cargo = g[1], tier = g[2], estado = g[3];
+          var vias = g[5] || [];
+          var marca = estado === "verificado"
+            ? '<span class="marca2 si">verificado</span>'
+            : '<span class="marca2 duda">inferido</span>';
+          return '<div class="quien"><div class="cab2"><div style="min-width:0">' +
+            '<span class="nom">' + esc(nombre) + "</span>" +
+            (cargo ? '<span class="car">' + esc(cargo) +
+              (tier ? " · " + (porTier[tier] || "") : "") + "</span>" : "") +
+            "</div>" + marca + "</div>" +
+            (vias.length ? '<div class="vias">' + vias.map(function(v){
+              var tipo = v[0], valor = v[1], ambito = v[2], est = v[3], c = v[4];
+              var enlace = tipo === "correo"
+                ? '<a href="mailto:' + esc(valor) + '">' + esc(valor) + "</a>"
+                : tipo === "telefono"
+                ? '<a href="tel:' + esc(String(valor).replace(/[^0-9+]/g, "")) + '">' + esc(valor) + "</a>"
+                : esc(valor);
+              // `area` es un buzón funcional: existe y contesta, pero no es de
+              // esta persona. Se dice, para que nadie lo trate como nominal.
+              //
+              // Sólo tiene sentido en correos: los teléfonos entran todos con
+              // ambito «area» por defecto, y rotular «buzón de área» un celular
+              // es decir una cosa que no significa nada.
+              var etiq = tipo !== "correo" ? ""
+                : ambito === "area" ? "buzón de área"
+                : ambito === "personal" ? "personal" : "";
+              return '<div class="via">' + enlace +
+                (etiq ? '<span class="marca2">' + etiq + "</span>" : "") +
+                (est === "inferido" && c < 40 ? '<span class="marca2 duda">sin confirmar</span>' : "") +
+                "</div>";
+            }).join("") + "</div>" : '<p class="nota">Sin vía de contacto propia.</p>') +
+            "</div>";
+        }).join("") + "</div>" +
+        '<p class="nota">Cruce de REPS, RUES, SECOP y el sitio de la empresa. ' +
+        "«Verificado» significa que dos fuentes independientes coinciden, no que " +
+        "alguien lo haya comprobado por teléfono.</p></section>";
     }
 
     var sm = r[C.sedes_mun];
