@@ -1,0 +1,1639 @@
+{
+  "generado": "2026-09-18",
+  "origen": "ariad",
+  "cuentas": [
+    {
+      "nit": "901164974",
+      "dv": "0",
+      "razon_social": "JUNICAL MEDICAL S.A.S.",
+      "municipio": "GIRARDOT",
+      "departamento": "Cundinamarca",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 86.9,
+      "prioridad": "alta",
+      "trabajadores": 126,
+      "fuerza_laboral": [
+        158,
+        660
+      ],
+      "crecimiento_pct": 1160.0,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 68,
+        "camas": 126,
+        "quirofanos": 3,
+        "consultorios": 19,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 59096396375,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "calidadjunical@gmail.com",
+          "ambito": "personal",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "contratacionjunical@gmail.com",
+          "ambito": "personal",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3132667767",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3125939760 y 3112135412",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "CASTILLO ARIAS MAYID ALFONSO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 55,
+          "canales": [],
+          "fuentes": "rues",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "MAGDA VALERIA MENDEZ CAICEDO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [],
+          "fuentes": "reps",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "891855847",
+      "dv": "3",
+      "razon_social": "CLINICA CASANARE S.A",
+      "municipio": "YOPAL",
+      "departamento": "Casanare",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 86.8,
+      "prioridad": "alta",
+      "trabajadores": 105,
+      "fuerza_laboral": [
+        131,
+        550
+      ],
+      "crecimiento_pct": 90.9,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 2,
+        "municipios": 1,
+        "servicios": 58,
+        "camas": 89,
+        "quirofanos": 4,
+        "consultorios": 20,
+        "ambulancias": 2
+      },
+      "ingresos_reportados": 32199018904,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "coordinacioncontratacion@clinicacasanare.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "correo",
+          "valor": "clinicacasanare@clinicacasanare.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "correo",
+          "valor": "clinicacasanare@yahoo.es",
+          "ambito": "personal",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "635 6021",
+          "ambito": "area",
+          "estado": "verificado",
+          "confianza": 70
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3103983446",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "NEYDI VIVIANA  JAIMES  LEGUIZAMON",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "901201887",
+      "dv": "7",
+      "razon_social": "Hospital de Alta Complejidad del Putumayo S.A.S ZOMAC",
+      "municipio": "PUERTO ASÍS",
+      "departamento": "Putumayo",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 86.4,
+      "prioridad": "alta",
+      "trabajadores": 124,
+      "fuerza_laboral": [
+        155,
+        650
+      ],
+      "crecimiento_pct": 300.0,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 74,
+        "camas": 162,
+        "quirofanos": 3,
+        "consultorios": 8,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 88277373482,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "gerencia@hacputumayo.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "gerencia@clinicaputumayo.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3158868640",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "JOHN JAIRO BELTRAN SUAREZ",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 97,
+          "canales": [
+            {
+              "tipo": "telefono",
+              "valor": "3134146544",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "reps,rues,secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "901031682",
+      "dv": "4",
+      "razon_social": "Clinica de la Mujer Cartagena S.A.S",
+      "municipio": "CARTAGENA",
+      "departamento": "Cartagena",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 86.2,
+      "prioridad": "alta",
+      "trabajadores": 122,
+      "fuerza_laboral": [
+        152,
+        639
+      ],
+      "crecimiento_pct": 293.6,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 36,
+        "camas": 71,
+        "quirofanos": 4,
+        "consultorios": 20,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 14981513169,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "clinicadelamujerctg@clinicadelamujerctg.com",
+          "ambito": "profesional",
+          "estado": "verificado",
+          "confianza": 85
+        },
+        {
+          "tipo": "correo",
+          "valor": "jpadilla@clinicadelamujerctg.com",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6448161",
+          "ambito": "area",
+          "estado": "verificado",
+          "confianza": 70
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3012885427",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "Jose Felipe Ballestas Campo",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "900098476",
+      "dv": "8",
+      "razon_social": "FUNDACION HOSPITAL INFANTIL UNIVERSITARIO DE SAN JOSE",
+      "municipio": "BOGOTÁ",
+      "departamento": "Bogotá D.C",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.7,
+      "prioridad": "alta",
+      "trabajadores": 227,
+      "fuerza_laboral": [
+        284,
+        1189
+      ],
+      "crecimiento_pct": 152.2,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 87,
+        "camas": 184,
+        "quirofanos": 11,
+        "consultorios": 41,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 154064055534,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "direccion.general@hospitalinfantildesanjose.org.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "notificaciones.legales@hospitalinfantildesanjose.org.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "4377540",
+          "ambito": "area",
+          "estado": "verificado",
+          "confianza": 70
+        },
+        {
+          "tipo": "web",
+          "valor": "HTTPS://WWW.HOSPITALINFANTILDESANJOSE.ORG.CO/",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "JORGE EUGENIO GOMEZ CUSNIR",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [],
+          "fuentes": "reps",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "LAIMA LUCIA DIDZIULIS GRIGALIUNAS",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [
+            {
+              "tipo": "telefono",
+              "valor": "3138891697",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "900233294",
+      "dv": "3",
+      "razon_social": "CLINICA GENERAL DEL CARIBE S.A.",
+      "municipio": "CARTAGENA",
+      "departamento": "Cartagena",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.6,
+      "prioridad": "alta",
+      "trabajadores": 125,
+      "fuerza_laboral": [
+        156,
+        655
+      ],
+      "crecimiento_pct": 101.6,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 2,
+        "municipios": 1,
+        "servicios": 62,
+        "camas": 90,
+        "quirofanos": 3,
+        "consultorios": 11,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 42970752909,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "j_comercial@clinicageneraldelcaribe.com",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "correo",
+          "valor": "info@clinicageneraldelcaribe.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3186736000",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6056943373",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "EDUARDO ENRIQUE GARCIA ANAYA",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "806013568",
+      "dv": "1",
+      "razon_social": "NEURODINAMIA S.A.S",
+      "municipio": "CARTAGENA",
+      "departamento": "Cartagena",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.6,
+      "prioridad": "alta",
+      "trabajadores": 107,
+      "fuerza_laboral": [
+        134,
+        561
+      ],
+      "crecimiento_pct": 94.5,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 4,
+        "municipios": 1,
+        "servicios": 50,
+        "camas": 90,
+        "quirofanos": 3,
+        "consultorios": 13,
+        "ambulancias": 3
+      },
+      "ingresos_reportados": 35523851618,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "ccalidad@neurodinamia.com.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6424550",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6056424550",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "web",
+          "valor": "WWW.NEURODINAMIA.COM.CO",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "RAFAEL DEL CRISTO ALMEIDA PEREZ",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 97,
+          "canales": [
+            {
+              "tipo": "correo",
+              "valor": "doperativa@neurodinamia.com.co",
+              "ambito": "profesional",
+              "estado": "inferido",
+              "confianza": 55
+            },
+            {
+              "tipo": "telefono",
+              "valor": "3135261236",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "reps,rues,secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "830104627",
+      "dv": "6",
+      "razon_social": "HOSPITAL CARDIOVASCULAR DE CUNDINAMARCA S.A",
+      "municipio": "SOACHA",
+      "departamento": "Cundinamarca",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.4,
+      "prioridad": "alta",
+      "trabajadores": 101,
+      "fuerza_laboral": [
+        126,
+        527
+      ],
+      "crecimiento_pct": null,
+      "tendencia": "sin_serie",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 63,
+        "camas": 176,
+        "quirofanos": 5,
+        "consultorios": 14,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 16135823747,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "contratacion@hccsa.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "direccion@hccsa.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "5922979",
+          "ambito": "area",
+          "estado": "verificado",
+          "confianza": 70
+        }
+      ],
+      "personas": []
+    },
+    {
+      "nit": "901532463",
+      "dv": "8",
+      "razon_social": "HOSPITAL DE ALTA COMPLEJIDAD DEL MAGDALENA CENTRO S.A.S",
+      "municipio": "LA DORADA",
+      "departamento": "Caldas",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.4,
+      "prioridad": "alta",
+      "trabajadores": 100,
+      "fuerza_laboral": [
+        125,
+        522
+      ],
+      "crecimiento_pct": null,
+      "tendencia": "sin_serie",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 75,
+        "camas": 168,
+        "quirofanos": 4,
+        "consultorios": 13,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": null,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "gerencia@hacmc.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3168316378",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "SANCHEZ CASTRO GLORIA ESPERANZA",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [
+            {
+              "tipo": "correo",
+              "valor": "gcontratos@cayenaazul.com",
+              "ambito": "profesional",
+              "estado": "inferido",
+              "confianza": 55
+            },
+            {
+              "tipo": "telefono",
+              "valor": "3153136305",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "rues,secop_proveedores",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "JOHN JAIRO BELTRAN SUAREZ",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [],
+          "fuentes": "reps",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "901552405",
+      "dv": "6",
+      "razon_social": "Clinica San Rafael de Popayán SAS",
+      "municipio": "POPAYÁN",
+      "departamento": "Cauca",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.3,
+      "prioridad": "alta",
+      "trabajadores": 100,
+      "fuerza_laboral": [
+        125,
+        523
+      ],
+      "crecimiento_pct": null,
+      "tendencia": "sin_serie",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 62,
+        "camas": 149,
+        "quirofanos": 5,
+        "consultorios": 11,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": null,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "notificaciones.cauca@stewardcolombia.org",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "contratacion.csrp@stewardcolombia.org",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "(2)8353810",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3014484734",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "ANDRES FELIPE PEÑA VANEGAS",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "Camilo Andrés Meneses Sotelo",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [
+            {
+              "tipo": "telefono",
+              "valor": "3104320998",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "902020823",
+      "dv": "2",
+      "razon_social": "FUNDACION CLINICA UNIVERSITARIA BOLIVARIANA",
+      "municipio": "MEDELLÍN",
+      "departamento": "Antioquia",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.2,
+      "prioridad": "alta",
+      "trabajadores": 115,
+      "fuerza_laboral": [
+        144,
+        603
+      ],
+      "crecimiento_pct": null,
+      "tendencia": "sin_serie",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 75,
+        "camas": 206,
+        "quirofanos": 5,
+        "consultorios": 20,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": null,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "notificacionesjudiciales@fundacioncub.edu.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "4455900 EXT 7101",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "CARLOS ALBERTO RESTREPO MOLINA",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [],
+          "fuentes": "reps",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "890982608",
+      "dv": "1",
+      "razon_social": "CORPORACION PARA ESTUDIOS EN SALUD CLINICA CES",
+      "municipio": "MEDELLÍN",
+      "departamento": "Antioquia",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.1,
+      "prioridad": "alta",
+      "trabajadores": 226,
+      "fuerza_laboral": [
+        282,
+        1184
+      ],
+      "crecimiento_pct": 103.6,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 2,
+        "municipios": 1,
+        "servicios": 116,
+        "camas": 205,
+        "quirofanos": 11,
+        "consultorios": 37,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 179138710852,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "martaalzate@clinicaces.edu.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "correo",
+          "valor": "andrestrujillo@clinicaces.edu.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "telefono",
+          "valor": "5745767272 ext. 7365",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "5767252",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "web",
+          "valor": "WWW.CLINICACES.COM",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "LUISA FERNANDA CASTANO RESTREPO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [
+            {
+              "tipo": "correo",
+              "valor": "luisacastano@clinicaces.edu.co",
+              "ambito": "profesional",
+              "estado": "inferido",
+              "confianza": 55
+            },
+            {
+              "tipo": "telefono",
+              "valor": "3154898748",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "secop_proveedores",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "ANDRES  TRUJILLO ZEA",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [],
+          "fuentes": "reps",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "830113849",
+      "dv": "2",
+      "razon_social": "CLINICA JUAN N CORPAS LTDA.",
+      "municipio": "BOGOTÁ",
+      "departamento": "Bogotá D.C",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.1,
+      "prioridad": "alta",
+      "trabajadores": 104,
+      "fuerza_laboral": [
+        130,
+        546
+      ],
+      "crecimiento_pct": null,
+      "tendencia": "sin_serie",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 48,
+        "camas": 126,
+        "quirofanos": 5,
+        "consultorios": 14,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": null,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "dir_calidad@clinicajuanncorpas.com",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6865000 Ext.1060 - 3233103491",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "Juan Carlos Vera Rugeles",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "900772387",
+      "dv": "1",
+      "razon_social": "CLINICA ALTA COMPLEJIDAD DE AGUACHICA S.A.S.",
+      "municipio": "AGUACHICA",
+      "departamento": "Cesar",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 85.0,
+      "prioridad": "alta",
+      "trabajadores": 106,
+      "fuerza_laboral": [
+        132,
+        553
+      ],
+      "crecimiento_pct": null,
+      "tendencia": "sin_serie",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 64,
+        "camas": 159,
+        "quirofanos": 3,
+        "consultorios": 7,
+        "ambulancias": 4
+      },
+      "ingresos_reportados": null,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "coordinacioncalidad@altacomplejidadaguachica.com",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "correo",
+          "valor": "cotizaciones@grupoclinicamedicos.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "contratacion@grupoclinicamedicos.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3165278214",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3155514515",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "web",
+          "valor": "HTTPS://WWW.ALTACOMPLEJIDADAGUACHICA.COM/",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "EILEEN EMIL MALDONADO PEREZ",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 97,
+          "canales": [
+            {
+              "tipo": "telefono",
+              "valor": "3176453640",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "reps,rues,secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "900465319",
+      "dv": "4",
+      "razon_social": "OINSAMED S.A.S.",
+      "municipio": "BARRANQUILLA",
+      "departamento": "Barranquilla",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 84.9,
+      "prioridad": "alta",
+      "trabajadores": 133,
+      "fuerza_laboral": [
+        166,
+        697
+      ],
+      "crecimiento_pct": 8.1,
+      "tendencia": "estable",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 127,
+        "camas": 245,
+        "quirofanos": 8,
+        "consultorios": 18,
+        "ambulancias": 1
+      },
+      "ingresos_reportados": 91805843354,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "dir.financiera@lmci.com.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3112626",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "0653112640",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "web",
+          "valor": "HTTP://LMCI.COM.CO/",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "Nayid Viloria Ariza",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [
+            {
+              "tipo": "correo",
+              "valor": "ejecutivocomercial@lmci.com.co",
+              "ambito": "profesional",
+              "estado": "inferido",
+              "confianza": 55
+            },
+            {
+              "tipo": "telefono",
+              "valor": "3506007508",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "secop_proveedores",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "EILEEN CHEGWIN CARDENAS",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 48,
+          "canales": [
+            {
+              "tipo": "correo",
+              "valor": "fulamic@lmci.com.co",
+              "ambito": "profesional",
+              "estado": "inferido",
+              "confianza": 55
+            },
+            {
+              "tipo": "telefono",
+              "valor": "3106369965",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "900304958",
+      "dv": "0",
+      "razon_social": "SOCIEDAD SAN JOSE DE TORICES S.A.S",
+      "municipio": "CARTAGENA",
+      "departamento": "Cartagena",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 84.8,
+      "prioridad": "alta",
+      "trabajadores": 114,
+      "fuerza_laboral": [
+        142,
+        597
+      ],
+      "crecimiento_pct": 178.1,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 26,
+        "camas": 54,
+        "quirofanos": 2,
+        "consultorios": 3,
+        "ambulancias": 1
+      },
+      "ingresos_reportados": 18475602040,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "dina.morelos@zentria.com.co",
+          "ambito": "profesional",
+          "estado": "inferido",
+          "confianza": 55
+        },
+        {
+          "tipo": "correo",
+          "valor": "sistemas@clinicasanjosedetorices.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6930531",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3187304679",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "CAROLINA  BUENDIA GUTIERREZ",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "901153925",
+      "dv": "2",
+      "razon_social": "CLINICA NUEVA EL LAGO S.A.S.",
+      "municipio": "BOGOTÁ",
+      "departamento": "Bogotá D.C",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 84.8,
+      "prioridad": "alta",
+      "trabajadores": 175,
+      "fuerza_laboral": [
+        219,
+        917
+      ],
+      "crecimiento_pct": 264.6,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 30,
+        "camas": 95,
+        "quirofanos": 5,
+        "consultorios": 13,
+        "ambulancias": 2
+      },
+      "ingresos_reportados": 243185800795,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "info@clinicanuevaellago.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "3078061- 3123459128",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "ANDRES ALBERTO MARTINEZ GUERRERO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 97,
+          "canales": [
+            {
+              "tipo": "correo",
+              "valor": "andres.martinez@clinicanuevaellago.com",
+              "ambito": "profesional",
+              "estado": "verificado",
+              "confianza": 85
+            },
+            {
+              "tipo": "telefono",
+              "valor": "3105563196",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "reps,rues,secop_proveedores",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "900817788",
+      "dv": "7",
+      "razon_social": "CLÍNICA DE MARLY JORGE CAVELIER GAVIRIA S.A.S",
+      "municipio": "CHÍA",
+      "departamento": "Cundinamarca",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 84.7,
+      "prioridad": "alta",
+      "trabajadores": 175,
+      "fuerza_laboral": [
+        219,
+        917
+      ],
+      "crecimiento_pct": 71.6,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 82,
+        "camas": 90,
+        "quirofanos": 4,
+        "consultorios": 12,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 90412205746,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "gerencia@marlyjcg.com.co",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "6532000",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "LUIS EDUARDO CAVELIER CASTRO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    },
+    {
+      "nit": "901145394",
+      "dv": "8",
+      "razon_social": "LOSCOBOS MEDICAL CENTER SAS",
+      "municipio": "BOGOTÁ",
+      "departamento": "Bogotá D.C",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 84.7,
+      "prioridad": "alta",
+      "trabajadores": 165,
+      "fuerza_laboral": [
+        206,
+        865
+      ],
+      "crecimiento_pct": 489.3,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 86,
+        "camas": 225,
+        "quirofanos": 11,
+        "consultorios": 43,
+        "ambulancias": 0
+      },
+      "ingresos_reportados": 112973522417,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "calidad@loscobosmc.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "7457581 EXT 2366",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "MIGUEL  ERNESTO OTERO  CADENA",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 85,
+          "canales": [],
+          "fuentes": "reps,rues",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "Albert Valencia Moreno",
+          "cargo": "Director Médico",
+          "cargo_categoria": "director_medico",
+          "tier": 3,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Judith Ortíz Mayorga",
+          "cargo": "Directora Enfermería",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Adriana Torres Navas",
+          "cargo": "Coordinador Cardiología",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Andrea Quiñónez Mora",
+          "cargo": "Jefe Adm. Unidades Cuidado Crítico",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Ángela Hernández",
+          "cargo": "Coordinadora Ortopedia - Reemplazos Articulares",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Carlos Luna Jaspe",
+          "cargo": "Jefe Unidad Quirúrgica",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Diana Leal Contreras",
+          "cargo": "Jefe Unidad Imágenes Diagnósticas",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        },
+        {
+          "nombre": "Enrique Osorio Fonseca",
+          "cargo": "Coordinador Neurocirugía",
+          "cargo_categoria": null,
+          "tier": null,
+          "estado": "inferido",
+          "confianza": 50,
+          "canales": [],
+          "fuentes": "web",
+          "rol_decision": "otro"
+        }
+      ]
+    },
+    {
+      "nit": "819002176",
+      "dv": "8",
+      "razon_social": "COMPAÑÍA COLOMBIANA DE SALUD COLSALUD S.A",
+      "municipio": "SANTA MARTA",
+      "departamento": "Santa Marta",
+      "naturaleza": "Privada",
+      "es_ese": false,
+      "score_icp": 84.6,
+      "prioridad": "alta",
+      "trabajadores": 153,
+      "fuerza_laboral": [
+        191,
+        802
+      ],
+      "crecimiento_pct": 34.2,
+      "tendencia": "creciendo",
+      "capacidad": {
+        "sedes": 1,
+        "municipios": 1,
+        "servicios": 100,
+        "camas": 269,
+        "quirofanos": 5,
+        "consultorios": 11,
+        "ambulancias": 1
+      },
+      "ingresos_reportados": 82177896716,
+      "canales_empresa": [
+        {
+          "tipo": "correo",
+          "valor": "gerencia@clinicamarcaribe.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "correo",
+          "valor": "direccioncomercial@clinicamarcaribe.com",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 50
+        },
+        {
+          "tipo": "telefono",
+          "valor": "4207586",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        },
+        {
+          "tipo": "web",
+          "valor": "WWW.CLINICAMARCARIBE.COM",
+          "ambito": "area",
+          "estado": "inferido",
+          "confianza": 40
+        }
+      ],
+      "personas": [
+        {
+          "nombre": "BETHSY  LUCILA FERNANDEZ DE PIZARRO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "verificado",
+          "confianza": 78,
+          "canales": [
+            {
+              "tipo": "telefono",
+              "valor": "3156515993",
+              "ambito": "area",
+              "estado": "inferido",
+              "confianza": 40
+            }
+          ],
+          "fuentes": "reps,secop_proveedores",
+          "rol_decision": "gerencia"
+        },
+        {
+          "nombre": "FLORES PEDRAZA EDWIN ANTONIO",
+          "cargo": "Representante Legal",
+          "cargo_categoria": "representante_legal",
+          "tier": 1,
+          "estado": "inferido",
+          "confianza": 55,
+          "canales": [],
+          "fuentes": "rues",
+          "rol_decision": "gerencia"
+        }
+      ]
+    }
+  ]
+}
