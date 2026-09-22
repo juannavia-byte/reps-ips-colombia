@@ -62,6 +62,9 @@ src/load.py               parseo, deduplicación, QA y carga de REPS
 src/load_supersalud.py    carga financiera y cruce por NIT
 src/estimar_personal.py   estimación de trabajadores (nómina + capacidad)
 src/score_icp.py          score de ICP por cociente LTV:CAC
+src/hoja_captura.py       hoja de captura manual, una fila por persona
+src/importar_hoja.py      la hoja llena, de vuelta a la base (idempotente)
+src/migracion_canales_sociales.sql  amplía canal.tipo a facebook, instagram, …
 src/recalibrar.py         compara el score contra cierres reales
 config/pesos_icp.json     pesos y umbrales del score · lo único editable a mano
 src/report.py             reporte de volúmenes, cruce, calidad y limitaciones

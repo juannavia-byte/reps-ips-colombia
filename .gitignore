@@ -6,3 +6,12 @@ __pycache__/
 .DS_Store
 tablero/datos.js
 dist/contactos_*.csv
+# Las hojas de trabajo se llenan con nombres, celulares y correos de personas.
+# Un CSV así versionado queda en el historial para siempre, y suprimir un dato
+# ante una solicitud de habeas data dejaría de ser posible: se borraría de la
+# base y seguiría en cualquier clon del repo. La base es la fuente de verdad;
+# estas hojas son de paso.
+dist/captura.csv
+dist/investigar.csv
+dist/llamadas.csv
+dist/llamadas-guion.txt

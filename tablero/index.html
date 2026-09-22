@@ -1423,23 +1423,50 @@
             "</div>" + marca + "</div>" +
             (vias.length ? '<div class="vias">' + vias.map(function(v){
               var tipo = v[0], valor = v[1], ambito = v[2], est = v[3], c = v[4];
+              var digitos = String(valor).replace(/[^0-9+]/g, "");
+              // Un perfil pintado como texto plano hay que seleccionarlo,
+              // copiarlo y pegarlo en otra pestaña. El punto de esta sección
+              // es tener por dónde escribirle: si no es clicable, no sirve.
               var enlace = tipo === "correo"
                 ? '<a href="mailto:' + esc(valor) + '">' + esc(valor) + "</a>"
                 : tipo === "telefono"
-                ? '<a href="tel:' + esc(String(valor).replace(/[^0-9+]/g, "")) + '">' + esc(valor) + "</a>"
+                ? '<a href="tel:' + esc(digitos) + '">' + esc(valor) + "</a>"
+                : tipo === "whatsapp"
+                ? '<a href="https://wa.me/' + esc(digitos.replace(/^\+?(57)?/, "57")) +
+                  '" target="_blank" rel="noopener">' + esc(valor) + "</a>"
+                : /^https?:\/\//.test(valor)
+                // El handle, no la URL entera: «anaruiz» se lee, y
+                // «https://www.instagram.com/anaruiz» desborda la ficha. De
+                // qué red es lo dice la etiqueta de al lado.
+                ? '<a href="' + esc(valor) + '" target="_blank" rel="noopener">' +
+                  esc(valor.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) + "</a>"
                 : esc(valor);
               // `area` es un buzón funcional: existe y contesta, pero no es de
               // esta persona. Se dice, para que nadie lo trate como nominal.
               //
-              // Sólo tiene sentido en correos: los teléfonos entran todos con
-              // ambito «area» por defecto, y rotular «buzón de área» un celular
-              // es decir una cosa que no significa nada.
-              var etiq = tipo !== "correo" ? ""
-                : ambito === "area" ? "buzón de área"
-                : ambito === "personal" ? "personal" : "";
+              // En el teléfono NO se usa el ámbito para rotular: las fuentes
+              // automáticas lo meten todo como «area» por defecto, así que un
+              // celular de REPS saldría rotulado «fijo», que es mentir. Se
+              // deduce del número: en Colombia un celular son diez dígitos que
+              // empiezan por 3, y eso es el plan de numeración, no una
+              // conjetura sobre quién publicó el dato.
+              //
+              // En las redes la etiqueta dice de qué red es, que con seis
+              // posibles ya no se adivina mirando el handle.
+              var soloNum = digitos.replace(/^\+?57/, "");
+              var etiq = tipo === "correo"
+                ? (ambito === "area" ? "buzón de área"
+                   : ambito === "personal" ? "personal" : "")
+                : tipo === "telefono"
+                ? (/^3\d{9}$/.test(soloNum) ? "celular" : "fijo")
+                : tipo;
               return '<div class="via">' + enlace +
                 (etiq ? '<span class="marca2">' + etiq + "</span>" : "") +
-                (est === "inferido" && c < 40 ? '<span class="marca2 duda">sin confirmar</span>' : "") +
+                // <= y no <: un dato deducido a mano entra con 40 exactos, y
+                // con el corte estricto se veía igual de firme que uno que
+                // dos fuentes confirman. Los de patrón entran con 25 y los de
+                // SECOP con 60, que es lo que este umbral separa.
+                (est === "inferido" && c <= 40 ? '<span class="marca2 duda">sin confirmar</span>' : "") +
                 "</div>";
             }).join("") + "</div>" : '<p class="nota">Sin vía de contacto propia.</p>') +
             "</div>";

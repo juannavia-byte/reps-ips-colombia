@@ -53,6 +53,8 @@ nombre.
 ```
 enriquecimiento.persona     quién es y qué cargo tiene
 enriquecimiento.canal       cada vía de contacto, con SU confianza y estado
+                            correo · telefono · whatsapp · web · linkedin
+                            facebook · instagram · x · tiktok · telegram
 enriquecimiento.evidencia   de dónde salió cada afirmación, con el registro crudo
 enriquecimiento.exclusion   lista de no-contactar (habeas data)
 enriquecimiento.corrida     una fila por ejecución, con coste
@@ -89,6 +91,58 @@ Los generados por patrón entran con confianza 25 y se cuentan aparte en el
 informe de cobertura. La primera versión les daba 60 —la misma nota que a un
 correo publicado en SECOP— y entonces «96 de cada 100 con correo nominal»
 resultaba ser casi todo conjeturas.
+
+## La captura a mano, empresa por empresa
+
+Las fuentes automáticas dan el Tier 1 casi completo y poco más: el sitio web
+rinde 6,8 % y SECOP no sirve para IPS privadas. El resto se investiga a mano, y
+para eso hay una hoja con ruta de vuelta.
+
+```bash
+python src/hoja_captura.py --salida dist/captura.csv          # todo el pipeline
+python src/hoja_captura.py --nit 900772387,891800330          # sólo esas dos
+
+# ... se llena en Sheets o Excel ...
+
+PYTHONPATH=src python src/importar_hoja.py --dsn "$DSN" \
+    --entrada dist/captura.csv --simular
+PYTHONPATH=src python src/importar_hoja.py --dsn "$DSN" --entrada dist/captura.csv
+python src/build_tablero.py --dsn "$DSN"                      # y aparece en Ariad
+```
+
+Una fila por **persona**, con once columnas de canal: correo, celular, fijo,
+WhatsApp, LinkedIn, Facebook, Instagram, X, TikTok y Telegram. Tres filas por
+empresa; si una da más gente, se duplica una fila y se cambia el nombre — el
+importador agrupa por NIT, no por posición.
+
+**Es idempotente.** Se puede importar a medio llenar, seguir llenando y volver a
+importar. Ni duplica ni hay que limpiar antes.
+
+### Qué resuelve solo
+
+| se escribe | queda |
+|---|---|
+| `@anaruiz`, `facebook.com/anaruiz`, la URL con `?utm_source=…` | el mismo canal, una sola vez |
+| `gerencia@`, `contratacion@` | ámbito `area`, sin tocarlo |
+| `300 555 12 34` en Celular, `604 444 5566` en Fijo | los dos `telefono`, distinto ámbito |
+| `CLINICA DEL NORTE SAS` en la columna del nombre | rechazada como persona; sus canales quedan en la empresa |
+| una fila sin nombre | canales a nivel de empresa, `persona_id` nulo |
+
+### La columna `Confirmado` es la que decide la confianza
+
+`si` (o vacío) entra **verificado con 90**; `no` entra **inferido con 40** y
+Ariad lo rotula «sin confirmar». Teclear un dato no lo verifica — si todo lo
+escrito a mano entrara como verificado, la palabra dejaría de significar algo
+en la base entera.
+
+### Redes: el CHECK no las dejaba entrar
+
+`traer_hubspot.py` mapeaba `hs_facebookid` → `facebook` desde el primer día,
+pero el CHECK de `canal.tipo` sólo aceptaba cinco valores y ninguno era ése:
+todo contacto de HubSpot con Facebook o Instagram reventaba contra la
+restricción. Nunca se notó porque nadie había llenado esos campos. Se corrige
+en `src/migracion_canales_sociales.sql`, que hay que correr una vez sobre las
+bases que ya existían.
 
 ## Uso
 
