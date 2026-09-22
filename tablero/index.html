@@ -429,7 +429,13 @@
     border-bottom:1px dashed var(--line);
   }
   .perfil .hueco:last-of-type{border-bottom:0}
+  .perfil .guia{
+    font-size:12px; color:var(--muted); margin:0 0 8px;
+    padding:7px 9px; background:var(--surface-2); border-radius:5px;
+  }
+  .perfil .guia b{color:var(--ink)}
   .perfil .hueco .et{font-size:12px; color:var(--muted); flex:none; min-width:12.5rem}
+  .perfil .hueco .cap-abrir{flex:none; padding:4px 9px; font-size:11.5px}
   .perfil .hueco .et b{color:var(--ink); font-weight:600}
   .perfil .hueco input[type=text]{
     flex:1; min-width:0; font-size:12.5px; background:var(--surface-2);
@@ -1622,22 +1628,31 @@
        llenar huecos: lo primero que se ve al abrir una empresa tiene que ser
        lo que queda por hacer en ella. */
     if(API){
+      /* El encabezado dice qué es esto y qué hay que hacer. Sin él, la lista
+         de cargos con un campo al lado no se explica sola: se lee como un
+         filtro más de los muchos que tiene la herramienta. */
+      h += '<p class="guia"><b>Falta por conseguir en esta empresa.</b> ' +
+        "Escribe el nombre junto al cargo y se abren los campos de contacto." +
+        (huecos.length ? " Son " + huecos.length +
+          (huecos.length === 1 ? " cargo" : " cargos") + "." : "") + "</p>";
       h += '<div class="huecos" data-nit="' + esc(id) + '">' +
         huecos.map(function(c){
           return '<div class="hueco" data-cat="' + esc(c.cat) + '" data-cargo="' +
             esc(c.etiqueta) + '">' +
             '<span class="et"><b>' + esc(c.etiqueta) + "</b></span>" +
-            '<input type="text" class="cap-nombre" placeholder="nombre completo…">' +
-            '<span class="tier">T' + c.tier + "</span></div>";
+            '<input type="text" class="cap-nombre" placeholder="¿quién es? nombre y apellido…">' +
+            '<span class="tier">T' + c.tier + "</span>" +
+            '<button type="button" class="btn ghost cap-abrir">+ contacto</button></div>';
         }).join("") +
         '<div class="hueco" data-cat="" data-cargo="">' +
           '<span class="et"><input type="text" class="cap-cargo" placeholder="otro cargo…"></span>' +
-          '<input type="text" class="cap-nombre" placeholder="nombre completo…">' +
-          '<span class="tier">—</span></div>' +
+          '<input type="text" class="cap-nombre" placeholder="¿quién es? nombre y apellido…">' +
+          '<span class="tier">—</span>' +
+          '<button type="button" class="btn ghost cap-abrir">+ contacto</button></div>' +
         "</div>";
       if(!huecos.length){
         h += '<p class="nota">Los cargos que el motor reconoce ya están cubiertos. ' +
-          "Con «otro cargo» se añade cualquier otro.</p>";
+          "Con «otro cargo», abajo, se añade cualquier otro.</p>";
       }
     } else {
       h += '<p class="aviso">Sólo lectura: esta copia no tiene sesión. ' +
@@ -1971,6 +1986,17 @@
 
   $("perfilCuerpo").addEventListener("click", function(e){
     var b = e.target;
+    /* El botón hace visible lo que antes sólo ocurría al teclear. Con el
+       formulario escondido detrás de un `input`, no había nada en pantalla
+       que dijera que ahí se podían meter contactos. */
+    if(b.classList.contains("cap-abrir")){
+      var f = b.closest(".hueco");
+      var ya = f.nextSibling && f.nextSibling.classList &&
+               f.nextSibling.classList.contains("cap-form");
+      if(ya){ f.nextSibling.parentNode.removeChild(f.nextSibling); return; }
+      if(abrirHueco(f)) f.querySelector(".cap-nombre").focus();
+      return;
+    }
     if(b.classList.contains("cap-cancelar")){
       var f = b.closest(".cap-form");
       if(f) f.parentNode.removeChild(f);
