@@ -69,27 +69,28 @@ def main() -> int:
                    jsonb_array_length(payload->'cols'),
                    coalesce(jsonb_array_length(payload->'cargos'), 0),
                    (SELECT count(*) FROM jsonb_object_keys(payload->'contactos')),
+                   (SELECT count(*) FROM jsonb_object_keys(coalesce(payload->'planta','{}'::jsonb))),
                    pg_size_pretty(pg_column_size(payload)::bigint)
             FROM portal.tablero WHERE id = 1
         """)
-        filas, n_rows, n_cols, n_cargos, n_contactos, peso = cur.fetchone()
+        filas, n_rows, n_cols, n_cargos, n_contactos, n_planta, peso = cur.fetchone()
     cx.close()
 
     esperado = (len(payload["rows"]), len(payload["cols"]),
-                len(payload["cargos"]), len(payload["contactos"]))
-    obtenido = (n_rows, n_cols, n_cargos, n_contactos)
+                len(payload["cargos"]), len(payload["contactos"]),
+                len(payload.get("planta", {})))
+    obtenido = (n_rows, n_cols, n_cargos, n_contactos, n_planta)
     ok = filas == n_rows and esperado == obtenido
 
     print(f"· en Supabase: {n_rows:,} filas · {n_cols} columnas · "
-          f"{n_contactos:,} empresas con contactos · {n_cargos} cargos · {peso}")
+          f"{n_contactos:,} con contactos · {n_planta:,} con planta · "
+          f"{n_cargos} cargos · {peso}")
     if ok:
         print("✓ cuadra con lo enviado")
     else:
         print("✗ NO cuadra con lo enviado")
-        print(f"   enviado:  filas={esperado[0]} cols={esperado[1]} "
-              f"cargos={esperado[2]} contactos={esperado[3]}")
-        print(f"   guardado: filas={obtenido[0]} cols={obtenido[1]} "
-              f"cargos={obtenido[2]} contactos={obtenido[3]}")
+        print(f"   enviado:  {esperado}")
+        print(f"   guardado: {obtenido}")
     if ok and not n_cargos:
         # No es un fallo del push: es que build_tablero no los armó. Sin este
         # aviso, el portal volvería a servir una pantalla de captura vacía.

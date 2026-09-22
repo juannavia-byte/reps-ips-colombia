@@ -170,6 +170,40 @@ GROUP BY 1
 """
 
 
+CONSULTA_PLANTA = """
+SELECT p.numero_identificacion,
+       jsonb_build_object(
+         'entidad',  pe.nombre_entidad,
+         'total',    pe.total_empleados,
+         'unidades', pe.unidades,
+         'salario',  pe.salario_promedio,
+         'nomina',   pe.nomina_mensual_est,
+         'corte',    pe.anio || '-' || lpad(pe.mes::text, 2, '0'),
+         'edades',   jsonb_build_array(pe.edad_hasta_29, pe.edad_30_39,
+                                       pe.edad_40_49, pe.edad_50_62, pe.edad_63_y_mas))
+FROM reps.planta_entidad pe
+JOIN reps.prestador p ON p.numero_identificacion = pe.nit
+"""
+
+
+def leer_planta(cx) -> dict:
+    """
+    Planta observada de la entidad, por NIT. Va aparte de `rows` y no como una
+    columna más porque NO es del mismo grano que `planta` estimada: aquélla es
+    del prestador y ésta de la entidad que lo contiene. Ver el encabezado de
+    src/empleo_publico.py.
+    """
+    try:
+        with cx.cursor() as cur:
+            cur.execute(CONSULTA_PLANTA)
+            return {nit: d for nit, d in cur.fetchall()}
+    except Exception:
+        # La tabla puede no existir todavía: el tablero se construye igual,
+        # sólo que sin la sección de planta real.
+        cx.rollback()
+        return {}
+
+
 def leer_contactos(cx) -> dict:
     """
     Personas y canales por NIT, para que el perfil los muestre sin consultar.
@@ -231,6 +265,7 @@ def construir_payload(dsn: str) -> dict:
                        .joinpath("config/pesos_icp.json").read_text(encoding="utf-8"))
     cx2 = psycopg.connect(dsn)
     contactos = leer_contactos(cx2)
+    planta = leer_planta(cx2)
     cx2.close()
 
     # Los cargos que la pantalla de captura sugiere, con su tier. Salen de la
@@ -274,7 +309,8 @@ def construir_payload(dsn: str) -> dict:
     cargos = sorted(sugeridos.values(), key=lambda c: (c["tier"], c["etiqueta"]))
 
     return {"generado": date.today().isoformat(), "cols": COLS, "rows": filas,
-            "pesos_icp": pesos, "contactos": contactos, "cargos": cargos}
+            "pesos_icp": pesos, "contactos": contactos, "cargos": cargos,
+            "planta": planta}
 
 
 def main() -> int:
@@ -306,7 +342,8 @@ def main() -> int:
     destino = salida / "tablero.html"
     destino.write_text(unico, encoding="utf-8")
 
-    print(f"· {len(filas):,} prestadores · {len(contactos):,} con contactos")
+    print(f"· {len(filas):,} prestadores · {len(contactos):,} con contactos "
+          f"· {len(payload['planta']):,} con planta observada")
     print(f"· tablero/datos.js      {(raiz / 'tablero' / 'datos.js').stat().st_size/1e6:.2f} MB")
     print(f"· {destino}  {destino.stat().st_size/1e6:.2f} MB  (archivo único, doble clic)")
     return 0

@@ -62,6 +62,7 @@ src/schema.sql            DDL comentado con las decisiones de modelado
 src/load.py               parseo, deduplicación, QA y carga de REPS
 src/load_supersalud.py    carga financiera y cruce por NIT
 src/estimar_personal.py   estimación de trabajadores (nómina + capacidad)
+src/empleo_publico.py     planta REAL de entidades públicas (SIGEP II, gratis)
 src/score_icp.py          score de ICP por cociente LTV:CAC
 src/hoja_captura.py       hoja de captura manual, una fila por persona
 src/importar_hoja.py      la hoja llena, de vuelta a la base (idempotente)
