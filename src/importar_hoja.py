@@ -93,12 +93,18 @@ SITIOS = {
 
 # Los dominios de cada red, para reconocer una URL pegada. LinkedIn lleva el
 # `/in/` aparte porque `/company/` es otra cosa y no es una persona.
+#
+# El `(?:[a-z]{2,3}\.)?` del principio es por los subdominios de país: LinkedIn
+# sirve los perfiles colombianos como `co.linkedin.com/in/…` y es lo que queda
+# al copiar el enlace desde un resultado de búsqueda. Sin contemplarlo, el
+# dominio no se reconoce, el handle se queda con la URL entera dentro y sale
+# `linkedin.com/in/co.linkedin.com/in/fulano`, que no lleva a ninguna parte.
 DOMINIOS = {
-    "linkedin":  r"linkedin\.com/in/",
-    "facebook":  r"(?:facebook|fb)\.com/",
-    "instagram": r"instagram\.com/",
-    "x":         r"(?:twitter|x)\.com/",
-    "tiktok":    r"tiktok\.com/@?",
+    "linkedin":  r"(?:[a-z]{2,3}\.)?linkedin\.com/in/",
+    "facebook":  r"(?:[a-z]{2,3}\.)?(?:facebook|fb)\.com/",
+    "instagram": r"(?:[a-z]{2,3}\.)?instagram\.com/",
+    "x":         r"(?:[a-z]{2,3}\.)?(?:twitter|x)\.com/",
+    "tiktok":    r"(?:[a-z]{2,3}\.)?tiktok\.com/@?",
     "telegram":  r"(?:t\.me|telegram\.me)/",
 }
 
@@ -119,6 +125,15 @@ def handle(tipo: str, v: str) -> str:
     v = (v or "").strip()
     if not v:
         return ""
+    # Facebook tiene dos formas de URL y en una el identificador VIVE en la
+    # query: las páginas sin nombre de usuario se sirven como
+    # `facebook.com/profile.php?id=1000890…`. Tirar la query como en todas las
+    # demás dejaba el handle en «profile.php» — un enlace muerto, y todas las
+    # páginas así colapsaban en el mismo valor. Es la forma que tiene la
+    # primera clínica que se miró, no un caso de laboratorio.
+    idfb = re.search(r"[?&]id=(\d+)", v) if re.search(r"profile\.php", v, re.I) else None
+    if idfb:
+        return "profile.php?id=" + idfb.group(1)
     v = re.sub(r"[?#].*$", "", v)                      # utm_source y compañía
     v = re.sub(r"^https?://", "", v, flags=re.I)
     v = re.sub(r"^www\.", "", v, flags=re.I)
