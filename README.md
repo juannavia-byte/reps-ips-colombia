@@ -45,6 +45,7 @@ O por pasos:
 .venv/bin/python src/load.py            --dsn "$DSN" --raw data/raw --schema src/schema.sql
 .venv/bin/python src/load_supersalud.py --dsn "$DSN" --raw data/raw
 .venv/bin/python src/report.py          --dsn "$DSN" --raw data/raw --salida docs/reporte.md
+PYTHONPATH=src .venv/bin/python src/build_tablero.py --dsn "$DSN"
 ```
 
 Toda la extracción del REPS tarda unos 2,5 minutos: **los cuatro exports
@@ -64,6 +65,8 @@ src/estimar_personal.py   estimación de trabajadores (nómina + capacidad)
 src/score_icp.py          score de ICP por cociente LTV:CAC
 src/hoja_captura.py       hoja de captura manual, una fila por persona
 src/importar_hoja.py      la hoja llena, de vuelta a la base (idempotente)
+src/traer_captura.py      lo capturado en Ariad, de vuelta a la base
+supabase/captura.sql      esquema de captura y sus políticas (aplicar una vez)
 src/migracion_canales_sociales.sql  amplía canal.tipo a facebook, instagram, …
 src/recalibrar.py         compara el score contra cierres reales
 config/pesos_icp.json     pesos y umbrales del score · lo único editable a mano
@@ -120,21 +123,32 @@ entra por prestación de servicios o por bolsas de empleo. **Para ARL las dos
 cifras son dos clientes distintos**: la planta en nómina la afilia la IPS; a los
 tercerizados los afilia la bolsa que los contrata.
 
-## Tablero
+## Tablero (Ariad)
 
-**En vivo: https://juannavia-byte.github.io/reps-ips-colombia/**
+**En vivo: https://proactivos.com.co/portal/ariad** — con sesión.
 
-Se republica con `./deploy_pages.sh` (regenera los datos y empuja la rama
-`gh-pages`). También queda `dist/tablero.html`, un archivo único de ~3 MB que
-funciona con doble clic, sin servidor ni internet.
-
+> **No se publica en GitHub Pages.** Hasta el 2026-09-22 la rama `gh-pages`
+> servía `datos.js` en abierto, y ese archivo lleva dentro el bloque
+> `contactos`: 20.398 personas con nombre, cargo, correo y teléfono. El
+> repositorio es público y Pages no pide sesión. `deploy_pages.sh` ahora sólo
+> publica un letrero que apunta al portal, y `dist/tablero.html` dejó de estar
+> versionado por lo mismo.
 
 `tablero/index.html` + `tablero/datos.js` (generado, no versionado). Filtra por
 geografía —por presencia real, no por sede principal—, capacidad, tamaño estimado
 y señales como "habilitó servicio nuevo en 12 meses", y exporta a CSV con
-separador `;` y BOM para que Excel en español respete los acentos.
+separador `;` y BOM para que Excel en español respete los acentos. Desde el
+perfil de cada empresa se capturan contactos: ver
+[`docs/03-contactos.md`](docs/03-contactos.md).
 
-Se regenera con `python src/build_tablero.py --dsn "$DSN"`.
+Se regenera con `PYTHONPATH=src python src/build_tablero.py --dsn "$DSN"` y se
+publica al portal con `push_tablero.py`. El HTML está vendorizado en
+`proactivos-website`: tras tocarlo, allá hay que correr
+`npm run vendorizar:ariad`.
+
+`dist/tablero.html` sigue saliendo del build como archivo único para uso local
+con doble clic, pero **no se versiona ni se publica**: lleva los mismos
+contactos dentro.
 
 ## Llevar la base a Supabase
 

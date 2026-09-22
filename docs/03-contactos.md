@@ -92,7 +92,47 @@ informe de cobertura. La primera versión les daba 60 —la misma nota que a un
 correo publicado en SECOP— y entonces «96 de cada 100 con correo nominal»
 resultaba ser casi todo conjeturas.
 
-## La captura a mano, empresa por empresa
+## La captura desde Ariad, empresa por empresa
+
+Es la vía principal. Se entra por **`/portal/ariad`** —con sesión— se busca la
+empresa, se abre su ficha y arriba de «Quién decide» aparecen los cargos que
+todavía no tiene cubiertos, con su tier. Se escribe el nombre en el que
+corresponda, se despliegan los diez campos de contacto, se guarda.
+
+Lo capturado queda en `captura.persona` y `captura.canal` de Supabase, marcado
+«sin bajar», y de ahí vuelve a la base local:
+
+```bash
+PYTHONPATH=src python src/traer_captura.py --dsn "$DSN" \
+    --supabase "$SUPABASE_DSN" --simular
+PYTHONPATH=src python src/traer_captura.py --dsn "$DSN" --supabase "$SUPABASE_DSN"
+PYTHONPATH=src python src/build_tablero.py --dsn "$DSN"
+python src/push_tablero.py --dsn "$DSN" --supabase "$SUPABASE_DSN"
+```
+
+Lo que se captura entra **verificado con 90**; si se desmarca «lo vi o me lo
+dijeron», entra **inferido con 40** y la ficha lo rotula «sin confirmar».
+
+**Los cargos sugeridos salen de la tabla `CARGOS` del motor**, no de una lista
+escrita en el HTML: el que se sugiere es exactamente el que el clasificador
+sabe reconocer, y con «otro cargo» se añade cualquiera que no esté.
+
+### Montarlo la primera vez
+
+```bash
+psql "$SUPABASE_DSN" -v ON_ERROR_STOP=1 -f supabase/captura.sql
+```
+
+Y en Supabase: **Settings → API → Exposed schemas**, añadir `captura`. Sin eso
+PostgREST responde `PGRST106` y el formulario no guarda.
+
+En `proactivos-website`, tras cualquier cambio del tablero:
+
+```bash
+npm run vendorizar:ariad     # regenera src/herramienta/plantilla.ts
+```
+
+## La captura a mano en hoja, empresa por empresa
 
 Las fuentes automáticas dan el Tier 1 casi completo y poco más: el sitio web
 rinde 6,8 % y SECOP no sirve para IPS privadas. El resto se investiga a mano, y
