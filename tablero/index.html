@@ -429,6 +429,19 @@
     border-bottom:1px dashed var(--line);
   }
   .perfil .hueco:last-of-type{border-bottom:0}
+  .av{font-family:var(--mono); font-size:11px; color:var(--faint)}
+  .av.hecho{color:var(--accent-ink); letter-spacing:-1px}
+  .av.revisada{color:var(--muted)}
+  .av.descartada{color:var(--crit)}
+  .perfil .revisar{
+    display:flex; align-items:center; gap:8px; margin-top:10px;
+    padding-top:10px; border-top:1px solid var(--line);
+  }
+  .perfil .revisar .cap-nota{
+    flex:1; min-width:0; font-size:12px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:5px; padding:5px 8px;
+  }
+  .perfil .revisar .cap-nota:focus{outline:none; border-color:var(--accent)}
   .perfil .guia{
     font-size:12px; color:var(--muted); margin:0 0 8px;
     padding:7px 9px; background:var(--surface-2); border-radius:5px;
@@ -611,6 +624,7 @@
         <label class="check"><input type="checkbox" id="fNomina"> Planta medida con nómina real</label>
         <label class="check"><input type="checkbox" id="fCorreo"> Correo propio (no gmail/hotmail)</label>
         <label class="check"><input type="checkbox" id="fLocal"> No es red nacional (≤3 deptos)</label>
+        <label class="check" id="lblPendientes" hidden><input type="checkbox" id="fPendientes"> Solo las que me faltan</label>
       </div>
     </div>
 
@@ -670,6 +684,7 @@
             <th class="num" style="width:7.5%">Fuerza laboral</th>
             <th class="num sortable" data-k="serv_nuevos_12m" style="width:4.5%">Serv. 12m</th>
             <th style="width:12%">Contacto</th>
+            <th style="width:6%" id="thAvance" hidden>Avance</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -1231,6 +1246,7 @@
     var coMin = val("consMin"), seMin = val("sedesMin");
     var oNuevo = $("fNuevo").checked, oNomina = $("fNomina").checked;
     var oCorreo = $("fCorreo").checked, oLocal = $("fLocal").checked;
+    var oPend = API && $("fPendientes").checked;
 
     vista = ROWS.filter(function(r){
       if(q){
@@ -1257,6 +1273,10 @@
       if(oNomina && r[C.metodo] !== "nom") return false;
       if(oCorreo && !correoPropio(r)) return false;
       if(oLocal && (r[C.n_dep]||1) > 3) return false;
+      // «Me falta» es no haber capturado a nadie Y no haberla dado por vista.
+      // Las dos condiciones: una empresa donde se buscó media hora sin
+      // resultado está trabajada aunque no tenga contactos.
+      if(oPend && (AVANCE[r[C.nit]] || ESTADO[r[C.nit]])) return false;
       return true;
     });
 
@@ -1521,6 +1541,64 @@
     });
   }
 
+  /* ── Avance por empresa ───────────────────────────────────────────────────
+     Cuántas personas se han capturado en cada NIT y cuáles se dieron por
+     revisadas. Se pide una vez al arrancar para poder pintarlo en la tabla:
+     preguntarlo fila por fila serían 200 peticiones por pantalla.
+     ──────────────────────────────────────────────────────────────────────── */
+  var AVANCE = {};     // nit → nº de personas capturadas
+  var ESTADO = {};     // nit → 'revisada' | 'descartada'
+
+  /* PostgREST corta en 1000 filas y no avisa: devuelve 1000 como si fueran
+     todas. Es el mismo corte silencioso que ya mordió en rc-medica-platform y
+     que `portal.tablero` evita metiendo todo en una sola fila. Acá no se puede
+     hacer eso, así que se pagina hasta que una página venga corta. */
+  function traerTodo(ruta){
+    var acc = [], paso = 1000;
+    function pagina(desde){
+      return fetch(API.url + "/rest/v1/" + ruta, {
+        headers: {
+          "apikey": API.anon, "Authorization": "Bearer " + API.token,
+          "Accept-Profile": "captura",
+          "Range-Unit": "items", "Range": desde + "-" + (desde + paso - 1)
+        }
+      }).then(function(r){
+        if(r.status === 401 || r.status === 403) throw new Error("sesión caducada");
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function(filas){
+        acc = acc.concat(filas || []);
+        if(!filas || filas.length < paso) return acc;
+        return pagina(desde + paso);
+      });
+    }
+    return pagina(0);
+  }
+
+  function cargarAvance(){
+    if(!API) return Promise.resolve();
+    return Promise.all([
+      traerTodo("persona?select=nit"),
+      traerTodo("empresa?select=nit,estado&estado=neq.pendiente")
+    ]).then(function(r){
+      AVANCE = {}; ESTADO = {};
+      r[0].forEach(function(p){ AVANCE[p.nit] = (AVANCE[p.nit] || 0) + 1; });
+      r[1].forEach(function(e){ ESTADO[e.nit] = e.estado; });
+    });
+  }
+
+  /* Lo que se pinta en la columna. Una empresa trabajada y una sin tocar
+     tienen que distinguirse de un vistazo bajando la lista, que es cuando se
+     decide en cuál entrar. */
+  function celdaAvance(nit){
+    var n = AVANCE[nit] || 0, e = ESTADO[nit];
+    if(n) return '<span class="av hecho">' + (n > 3 ? "●●●" : Array(n + 1).join("●")) +
+      " " + n + "</span>";
+    if(e === "revisada")   return '<span class="av revisada">✓ revisada</span>';
+    if(e === "descartada") return '<span class="av descartada">✕ descartada</span>';
+    return '<span class="av">·</span>';
+  }
+
   function cargarCapturado(nit){
     if(!API) return Promise.resolve([]);
     return api("persona?nit=eq." + encodeURIComponent(nit) +
@@ -1654,6 +1732,17 @@
         h += '<p class="nota">Los cargos que el motor reconoce ya están cubiertos. ' +
           "Con «otro cargo», abajo, se añade cualquier otro.</p>";
       }
+      /* Buscar media hora y no encontrar a nadie es un resultado, y hay que
+         poder anotarlo: si no, esta empresa se ve mañana igual que una que
+         nadie ha tocado y se vuelve a trabajar entera. */
+      var est = ESTADO[id];
+      h += '<div class="revisar" data-nit="' + esc(id) + '">' +
+        (est === "revisada"
+          ? '<span class="marca2 si">✓ marcada como revisada</span>' +
+            '<button type="button" class="btn ghost cap-revisar" data-a="pendiente">Volver a pendiente</button>'
+          : '<input type="text" class="cap-nota" placeholder="por qué no dio nada (opcional)…">' +
+            '<button type="button" class="btn ghost cap-revisar" data-a="revisada">Revisada, no encontré a nadie</button>') +
+        '<span class="estado"></span></div>';
     } else {
       h += '<p class="aviso">Sólo lectura: esta copia no tiene sesión. ' +
         "Para capturar contactos entra por <b>/portal/ariad</b>.</p>";
@@ -1997,6 +2086,28 @@
       if(abrirHueco(f)) f.querySelector(".cap-nombre").focus();
       return;
     }
+    if(b.classList.contains("cap-revisar")){
+      var caja = b.closest(".revisar");
+      var nit = caja.getAttribute("data-nit");
+      var accion = b.getAttribute("data-a");
+      var campo = caja.querySelector(".cap-nota");
+      var e2 = caja.querySelector(".estado");
+      b.disabled = true;
+      e2.textContent = "Guardando…"; e2.className = "estado";
+      api("empresa", {method:"POST", body:[{
+        nit: nit, estado: accion, nota: campo ? (campo.value || "").trim() || null : null
+      }], prefer:"return=representation,resolution=merge-duplicates"})
+        .then(function(){
+          if(accion === "revisada") ESTADO[nit] = "revisada"; else delete ESTADO[nit];
+          pintar();              // la fila de la tabla cambia de marca al instante
+          if(perfilActual === nit) abrirPerfil(nit);
+        })
+        .catch(function(err){
+          b.disabled = false;
+          e2.textContent = "No se guardó: " + err.message; e2.className = "estado mal";
+        });
+      return;
+    }
     if(b.classList.contains("cap-cancelar")){
       var f = b.closest(".cap-form");
       if(f) f.parentNode.removeChild(f);
@@ -2093,6 +2204,9 @@
         '<td class="band" data-et="Fuerza laboral">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
         '<td class="num" data-et="Serv. nuevos">' + (r[C.serv_nuevos_12m] || "·") + "</td>" +
         '<td class="contacto" data-et="Contacto">' + contacto(r) + "</td>" +
+        // Sólo con sesión: sin API no hay avance que mostrar y una columna
+        // vacía en todas las filas sería ruido.
+        (API ? '<td class="avance" data-et="Avance">' + celdaAvance(id) + "</td>" : "") +
         "</tr>";
     }).join("");
 
@@ -2285,5 +2399,21 @@
 
   limpiar();
   filtrar();
+
+  /* El avance se pide después de pintar, no antes: la tabla sale al instante
+     desde el payload y la columna se rellena cuando llega. Bloquear el
+     arranque por una petición de red haría lento lo que hoy es inmediato, y
+     si Supabase no responde la herramienta sigue sirviendo para todo lo demás. */
+  if(API){
+    $("thAvance").hidden = false;
+    $("lblPendientes").hidden = false;
+    $("fPendientes").addEventListener("change", function(){ despresetear(); filtrar(); });
+    cargarAvance().then(function(){ pintar(); }).catch(function(e){
+      // Sin avance la columna queda en «·» para todo: se dice, porque si no
+      // parecería que no se ha trabajado ninguna empresa.
+      $("thAvance").textContent = "Avance ⚠";
+      $("thAvance").title = "No se pudo leer el avance: " + e.message;
+    });
+  }
 })();
 </script>
