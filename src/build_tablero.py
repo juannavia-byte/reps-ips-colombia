@@ -193,13 +193,19 @@ def leer_contactos(cx) -> dict:
         return {}
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--dsn", required=True)
-    ap.add_argument("--salida", default="dist")
-    args = ap.parse_args()
+def construir_payload(dsn: str) -> dict:
+    """
+    El payload de la herramienta. UNA sola función, usada por los dos destinos.
 
-    cx = psycopg.connect(args.dsn)
+    Antes había dos: ésta y una copia en `push_tablero.py`, cuyo docstring
+    prometía que no podían divergir porque compartían la consulta. Compartían
+    la consulta y duplicaban el ensamblado, que es donde de verdad divergieron:
+    al añadir `cargos` para la pantalla de captura, el archivo local los tenía
+    y lo que subía a Supabase no. El portal servía un payload sin cargos, así
+    que la sección de captura salía vacía y no había forma de notarlo desde
+    acá: los dos comandos decían que todo había ido bien.
+    """
+    cx = psycopg.connect(dsn)
     with cx.cursor() as cur:
         cur.execute(CONSULTA)
         crudas = cur.fetchall()
@@ -221,9 +227,9 @@ def main() -> int:
             f[j] = None if f[j] is None else round(float(f[j]), 3)
         filas.append(f)
 
-    pesos = json.loads((raiz_cfg := Path(__file__).resolve().parent.parent)
+    pesos = json.loads(Path(__file__).resolve().parent.parent
                        .joinpath("config/pesos_icp.json").read_text(encoding="utf-8"))
-    cx2 = psycopg.connect(args.dsn)
+    cx2 = psycopg.connect(dsn)
     contactos = leer_contactos(cx2)
     cx2.close()
 
@@ -267,11 +273,21 @@ def main() -> int:
             }
     cargos = sorted(sugeridos.values(), key=lambda c: (c["tier"], c["etiqueta"]))
 
-    payload = {"generado": date.today().isoformat(), "cols": COLS, "rows": filas,
-               "pesos_icp": pesos, "contactos": contactos, "cargos": cargos}
+    return {"generado": date.today().isoformat(), "cols": COLS, "rows": filas,
+            "pesos_icp": pesos, "contactos": contactos, "cargos": cargos}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dsn", required=True)
+    ap.add_argument("--salida", default="dist")
+    args = ap.parse_args()
+
+    payload = construir_payload(args.dsn)
+    filas, contactos = payload["rows"], payload["contactos"]
     crudo = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
-    raiz = raiz_cfg
+    raiz = Path(__file__).resolve().parent.parent
     (raiz / "tablero" / "datos.js").write_text("window.DATOS=" + crudo + ";", encoding="utf-8")
 
     plantilla = (raiz / "tablero" / "index.html").read_text(encoding="utf-8")
