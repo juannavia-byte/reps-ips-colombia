@@ -53,6 +53,8 @@ nombre.
 ```
 enriquecimiento.persona     quién es y qué cargo tiene
 enriquecimiento.canal       cada vía de contacto, con SU confianza y estado
+                            correo · telefono · whatsapp · web · linkedin
+                            facebook · instagram · x · tiktok · telegram
 enriquecimiento.evidencia   de dónde salió cada afirmación, con el registro crudo
 enriquecimiento.exclusion   lista de no-contactar (habeas data)
 enriquecimiento.corrida     una fila por ejecución, con coste
@@ -89,6 +91,98 @@ Los generados por patrón entran con confianza 25 y se cuentan aparte en el
 informe de cobertura. La primera versión les daba 60 —la misma nota que a un
 correo publicado en SECOP— y entonces «96 de cada 100 con correo nominal»
 resultaba ser casi todo conjeturas.
+
+## La captura desde Ariad, empresa por empresa
+
+Es la vía principal. Se entra por **`/portal/ariad`** —con sesión— se busca la
+empresa, se abre su ficha y arriba de «Quién decide» aparecen los cargos que
+todavía no tiene cubiertos, con su tier. Se escribe el nombre en el que
+corresponda, se despliegan los diez campos de contacto, se guarda.
+
+Lo capturado queda en `captura.persona` y `captura.canal` de Supabase, marcado
+«sin bajar», y de ahí vuelve a la base local:
+
+```bash
+PYTHONPATH=src python src/traer_captura.py --dsn "$DSN" \
+    --supabase "$SUPABASE_DSN" --simular
+PYTHONPATH=src python src/traer_captura.py --dsn "$DSN" --supabase "$SUPABASE_DSN"
+PYTHONPATH=src python src/build_tablero.py --dsn "$DSN"
+python src/push_tablero.py --dsn "$DSN" --supabase "$SUPABASE_DSN"
+```
+
+Lo que se captura entra **verificado con 90**; si se desmarca «lo vi o me lo
+dijeron», entra **inferido con 40** y la ficha lo rotula «sin confirmar».
+
+**Los cargos sugeridos salen de la tabla `CARGOS` del motor**, no de una lista
+escrita en el HTML: el que se sugiere es exactamente el que el clasificador
+sabe reconocer, y con «otro cargo» se añade cualquiera que no esté.
+
+### Montarlo la primera vez
+
+```bash
+psql "$SUPABASE_DSN" -v ON_ERROR_STOP=1 -f supabase/captura.sql
+```
+
+Y en Supabase: **Settings → API → Exposed schemas**, añadir `captura`. Sin eso
+PostgREST responde `PGRST106` y el formulario no guarda.
+
+En `proactivos-website`, tras cualquier cambio del tablero:
+
+```bash
+npm run vendorizar:ariad     # regenera src/herramienta/plantilla.ts
+```
+
+## La captura a mano en hoja, empresa por empresa
+
+Las fuentes automáticas dan el Tier 1 casi completo y poco más: el sitio web
+rinde 6,8 % y SECOP no sirve para IPS privadas. El resto se investiga a mano, y
+para eso hay una hoja con ruta de vuelta.
+
+```bash
+python src/hoja_captura.py --salida dist/captura.csv          # todo el pipeline
+python src/hoja_captura.py --nit 900772387,891800330          # sólo esas dos
+
+# ... se llena en Sheets o Excel ...
+
+PYTHONPATH=src python src/importar_hoja.py --dsn "$DSN" \
+    --entrada dist/captura.csv --simular
+PYTHONPATH=src python src/importar_hoja.py --dsn "$DSN" --entrada dist/captura.csv
+python src/build_tablero.py --dsn "$DSN"                      # y aparece en Ariad
+```
+
+Una fila por **persona**, con once columnas de canal: correo, celular, fijo,
+WhatsApp, LinkedIn, Facebook, Instagram, X, TikTok y Telegram. Tres filas por
+empresa; si una da más gente, se duplica una fila y se cambia el nombre — el
+importador agrupa por NIT, no por posición.
+
+**Es idempotente.** Se puede importar a medio llenar, seguir llenando y volver a
+importar. Ni duplica ni hay que limpiar antes.
+
+### Qué resuelve solo
+
+| se escribe | queda |
+|---|---|
+| `@anaruiz`, `facebook.com/anaruiz`, la URL con `?utm_source=…` | el mismo canal, una sola vez |
+| `gerencia@`, `contratacion@` | ámbito `area`, sin tocarlo |
+| `300 555 12 34` en Celular, `604 444 5566` en Fijo | los dos `telefono`, distinto ámbito |
+| `CLINICA DEL NORTE SAS` en la columna del nombre | rechazada como persona; sus canales quedan en la empresa |
+| una fila sin nombre | canales a nivel de empresa, `persona_id` nulo |
+
+### La columna `Confirmado` es la que decide la confianza
+
+`si` (o vacío) entra **verificado con 90**; `no` entra **inferido con 40** y
+Ariad lo rotula «sin confirmar». Teclear un dato no lo verifica — si todo lo
+escrito a mano entrara como verificado, la palabra dejaría de significar algo
+en la base entera.
+
+### Redes: el CHECK no las dejaba entrar
+
+`traer_hubspot.py` mapeaba `hs_facebookid` → `facebook` desde el primer día,
+pero el CHECK de `canal.tipo` sólo aceptaba cinco valores y ninguno era ése:
+todo contacto de HubSpot con Facebook o Instagram reventaba contra la
+restricción. Nunca se notó porque nadie había llenado esos campos. Se corrige
+en `src/migracion_canales_sociales.sql`, que hay que correr una vez sobre las
+bases que ya existían.
 
 ## Uso
 

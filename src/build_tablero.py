@@ -20,6 +20,11 @@ from pathlib import Path
 
 import psycopg
 
+# La tabla de cargos del motor, para que la pantalla de captura sugiera
+# exactamente los que el clasificador sabe reconocer. Obliga a correr esto con
+# PYTHONPATH=src, igual que `raspar_web.py`.
+from enriquecer import CARGOS
+
 CONSULTA = """
 WITH sede_ref AS (
   -- Una sola sede de referencia: la principal; si no hay, la más antigua.
@@ -142,7 +147,18 @@ SELECT p.numero_identificacion,
                          ca.tipo, ca.valor, ca.ambito, ca.estado, ca.confianza)
                        ORDER BY ca.confianza DESC)
                 FROM enriquecimiento.canal ca
-                WHERE ca.persona_id = pe.id), '[]'::jsonb))
+                WHERE ca.persona_id = pe.id), '[]'::jsonb),
+      -- Va AL FINAL y no junto al cargo, aunque ahí encajaría mejor de leer:
+      -- el índice 5 es el array de vías y el tablero lo busca por posición.
+      -- Meterla en medio desplazaría las vías un puesto y el perfil dejaría
+      -- de pintar los contactos sin que ninguna prueba lo detectara.
+      --
+      -- La necesita la pantalla de captura para saber qué cargos ya están
+      -- cubiertos. Sin ella habría que reconocer el cargo desde su texto en
+      -- JavaScript, duplicando los quince patrones del motor en otro
+      -- lenguaje, y la lista de «lo que falta» empezaría a discrepar de lo
+      -- que el clasificador decide al guardar.
+      pe.cargo_categoria)
     ORDER BY coalesce(pe.tier, 9), pe.confianza DESC) AS gente
 FROM enriquecimiento.persona pe
 JOIN reps.prestador p ON p.id = pe.prestador_id
@@ -211,8 +227,48 @@ def main() -> int:
     contactos = leer_contactos(cx2)
     cx2.close()
 
+    # Los cargos que la pantalla de captura sugiere, con su tier. Salen de la
+    # misma tabla `CARGOS` que usa el motor para clasificar, y no de una lista
+    # escrita a mano en el HTML: con dos listas, el día que se añada un cargo
+    # al motor la pantalla seguiría sugiriendo los viejos, y un cargo sugerido
+    # que el clasificador no reconoce entra a la base sin tier.
+    #
+    # Se colapsan por categoría conservando el tier más alto (el número más
+    # bajo): `gerente_general` aparece una vez, no una por cada patrón.
+    # Las etiquetas SÍ van escritas acá, y sólo ellas. La categoría es una
+    # clave de máquina —`sst`, `hseq`— y capitalizarla da «Sst» y «Hseq», que
+    # no es cómo nadie llama a ese cargo. Lo que no se duplica es la LISTA:
+    # un cargo que el motor conozca y no esté acá sale igual, con su nombre
+    # de máquina, en vez de desaparecer de la pantalla sin que nadie lo note.
+    ETIQUETAS = {
+        "representante_legal": "Representante legal",
+        "gerente_general": "Gerente general",
+        "director_general": "Director general",
+        "presidente": "Presidente",
+        "propietario": "Propietario o socio",
+        "gerente_financiero": "Gerente administrativo o financiero",
+        "ordenador_del_gasto": "Ordenador del gasto",
+        "subgerente": "Subgerente o subdirector",
+        "sst": "Responsable de SST",
+        "hseq": "Jefe de HSEQ",
+        "calidad": "Jefe de calidad",
+        "supervisor_contrato": "Supervisor de contrato",
+        "director_medico": "Director médico o científico",
+        "juridica": "Jurídica",
+        "talento_humano": "Talento humano",
+    }
+    sugeridos: dict[str, dict] = {}
+    for tier, categoria, _ in CARGOS:
+        if categoria not in sugeridos or tier < sugeridos[categoria]["tier"]:
+            sugeridos[categoria] = {
+                "cat": categoria, "tier": tier,
+                "etiqueta": ETIQUETAS.get(categoria,
+                                          categoria.replace("_", " ").capitalize()),
+            }
+    cargos = sorted(sugeridos.values(), key=lambda c: (c["tier"], c["etiqueta"]))
+
     payload = {"generado": date.today().isoformat(), "cols": COLS, "rows": filas,
-               "pesos_icp": pesos, "contactos": contactos}
+               "pesos_icp": pesos, "contactos": contactos, "cargos": cargos}
     crudo = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
     raiz = raiz_cfg

@@ -96,8 +96,13 @@ create table if not exists enriquecimiento.canal (
   persona_id     bigint references enriquecimiento.persona(id) on delete cascade,
   prestador_id   bigint not null references reps.prestador(id) on delete cascade,
 
+  -- El teléfono fijo y el celular son ambos `telefono`: el tipo dice POR DÓNDE
+  -- se contacta y `ambito` dice quién atiende del otro lado. Las redes entran
+  -- porque la IPS pequeña de municipio publica un Facebook mucho antes que un
+  -- LinkedIn. Ver src/migracion_canales_sociales.sql.
   tipo           text not null
-                 check (tipo in ('correo','telefono','whatsapp','linkedin','web')),
+                 check (tipo in ('correo','telefono','whatsapp','linkedin','web',
+                                 'facebook','instagram','x','tiktok','telegram')),
   valor          text not null,
   valor_norm     text not null,           -- para deduplicar sin repetir la limpieza
 
@@ -134,7 +139,7 @@ create table if not exists enriquecimiento.evidencia (
   id           bigserial primary key,
   persona_id   bigint references enriquecimiento.persona(id) on delete cascade,
   canal_id     bigint references enriquecimiento.canal(id) on delete cascade,
-  fuente       text not null,        -- reps | rues | secop_proveedores | secop_contratos | web | patron
+  fuente       text not null,        -- reps | rues | secop_proveedores | secop_contratos | web | patron | manual
   referencia   text,                 -- URL, dataset+id, o el dominio consultado
   extraido_en  timestamptz not null default now(),
   crudo        jsonb,                -- el registro tal como vino

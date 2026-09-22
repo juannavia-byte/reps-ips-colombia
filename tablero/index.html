@@ -420,6 +420,55 @@
   .perfil .quien .via{font-family:var(--mono); font-size:11px; display:flex; gap:6px;
     align-items:baseline; flex-wrap:wrap; word-break:break-all}
   .perfil .quien .via a{color:var(--accent-ink)}
+  /* ── Captura ────────────────────────────────────────────────────────────
+     La pantalla de enriquecer una empresa. Hereda todo lo que puede de
+     `.quien` y `.via`: lo capturado y lo que trajo el motor se leen igual
+     porque son la misma cosa, y sólo se distinguen por su marca de estado.  */
+  .perfil .hueco{
+    display:flex; align-items:center; gap:8px; padding:5px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .perfil .hueco:last-of-type{border-bottom:0}
+  .perfil .hueco .et{font-size:12px; color:var(--muted); flex:none; min-width:12.5rem}
+  .perfil .hueco .et b{color:var(--ink); font-weight:600}
+  .perfil .hueco input[type=text]{
+    flex:1; min-width:0; font-size:12.5px; background:var(--surface-2);
+    border:1px solid var(--line); border-radius:5px; padding:5px 8px;
+  }
+  .perfil .hueco input:focus{outline:none; border-color:var(--accent)}
+  .perfil .tier{
+    font-family:var(--mono); font-size:9.5px; color:var(--faint);
+    border:1px solid var(--line); border-radius:3px; padding:1px 4px; flex:none;
+  }
+  .perfil .canales{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));
+    gap:6px; margin:8px 0 4px;
+  }
+  .perfil .canal{display:flex; align-items:center; gap:6px}
+  .perfil .canal .et2{
+    font-family:var(--mono); font-size:10px; color:var(--faint);
+    min-width:4.6rem; flex:none; text-transform:lowercase;
+  }
+  .perfil .canal input{
+    flex:1; min-width:0; font-size:12px; font-family:var(--mono);
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:5px; padding:4px 7px;
+  }
+  .perfil .canal input:focus{outline:none; border-color:var(--accent)}
+  .perfil .cap-form{
+    border-left:2px solid var(--accent); padding:6px 0 8px 10px; margin:2px 0 8px;
+  }
+  .perfil .acciones{display:flex; align-items:center; gap:10px; margin-top:8px}
+  .perfil .acciones .hint{margin-right:auto}
+  /* El estado de guardado. Ocupa sitio siempre —aunque esté vacío— para que
+     la fila no salte cuando aparece el mensaje. */
+  .perfil .estado{font-size:11.5px; min-height:1.2em}
+  .perfil .estado.ok{color:var(--accent-ink)}
+  .perfil .estado.mal{color:var(--crit)}
+  .perfil .aviso{
+    font-size:11.5px; color:var(--warn); background:var(--warn-soft);
+    border:1px solid var(--warn); border-radius:5px; padding:7px 9px; margin:6px 0 0;
+  }
   .perfil .marca2{
     font-family:var(--sans); font-size:9.5px; padding:1px 5px; border-radius:99px;
     border:1px solid var(--line-strong); color:var(--faint); white-space:nowrap;
@@ -1337,6 +1386,142 @@
     }).join("") + "</div>";
   }
 
+  /* ── Captura de contactos ─────────────────────────────────────────────────
+     Escribe en `captura.persona` y `captura.canal` de Supabase. La conexión la
+     inyecta /portal/ariad con la sesión de quien entró; sin ella la pantalla
+     se queda en sólo lectura y lo dice, que es lo que pasa al abrir el archivo
+     suelto o servirlo sin login.
+
+     Las reglas de normalización son LAS MISMAS que `src/importar_hoja.py`, a
+     propósito y con el riesgo asumido de tenerlas en dos lenguajes: acá sirven
+     para avisar y deduplicar mientras se escribe, y allá para decidir qué se
+     guarda. `traer_captura.py` recalcula todo desde cero al bajarlo, así que
+     si las dos divergen gana la de Python y no se corrompe nada.
+     ──────────────────────────────────────────────────────────────────────── */
+  var API = window.ARIAD_API || null;
+
+  var SITIOS = {
+    linkedin:"https://www.linkedin.com/in/%s", facebook:"https://www.facebook.com/%s",
+    instagram:"https://www.instagram.com/%s", x:"https://x.com/%s",
+    tiktok:"https://www.tiktok.com/@%s", telegram:"https://t.me/%s"
+  };
+  var DOMINIOS = {
+    linkedin:/^(?:[a-z]{2,3}\.)?linkedin\.com\/in\//i,
+    facebook:/^(?:[a-z]{2,3}\.)?(?:facebook|fb)\.com\//i,
+    instagram:/^(?:[a-z]{2,3}\.)?instagram\.com\//i,
+    x:/^(?:[a-z]{2,3}\.)?(?:twitter|x)\.com\//i,
+    tiktok:/^(?:[a-z]{2,3}\.)?tiktok\.com\/@?/i,
+    telegram:/^(?:t\.me|telegram\.me)\//i
+  };
+  /* Los canales que se capturan, en el orden en que se suelen conseguir.
+     `et` es lo que se lee; `tipo` y `ambito` es lo que se guarda. Celular y
+     fijo son los dos `telefono`: el tipo dice por dónde se contacta y el
+     ámbito quién atiende. */
+  var CANALES = [
+    {k:"correo",    et:"correo",    tipo:"correo",    ambito:null},
+    {k:"celular",   et:"celular",   tipo:"telefono",  ambito:"personal"},
+    {k:"fijo",      et:"fijo",      tipo:"telefono",  ambito:"area"},
+    {k:"whatsapp",  et:"whatsapp",  tipo:"whatsapp",  ambito:"personal"},
+    {k:"linkedin",  et:"linkedin",  tipo:"linkedin",  ambito:"profesional"},
+    {k:"facebook",  et:"facebook",  tipo:"facebook",  ambito:"personal"},
+    {k:"instagram", et:"instagram", tipo:"instagram", ambito:"personal"},
+    {k:"x",         et:"x",         tipo:"x",         ambito:"personal"},
+    {k:"tiktok",    et:"tiktok",    tipo:"tiktok",    ambito:"personal"},
+    {k:"telegram",  et:"telegram",  tipo:"telegram",  ambito:"personal"}
+  ];
+
+  var BUZONES = ["contratacion","contratos","gerencia","info","contacto","notificacion",
+    "notificaciones","facturacion","cartera","juridica","juridico","cotizaciones","ventas",
+    "comercial","administracion","recepcion","calidad","talentohumano","gestionhumana",
+    "rrhh","compras","tesoreria","direccion","secretaria","pqrs","citas","admisiones"];
+  var PERSONALES = ["gmail.com","hotmail.com","hotmail.es","outlook.com","outlook.es",
+    "yahoo.com","yahoo.es","live.com","icloud.com","protonmail.com"];
+
+  function claveNombre(s){
+    var t = sinTildes(String(s || "").toLowerCase()).match(/[a-z]{2,}/g) || [];
+    return t.sort().join(" ");
+  }
+
+  function ambitoCorreo(c){
+    c = String(c || "").toLowerCase();
+    if(c.indexOf("@") < 0) return "area";
+    var p = c.split("@"), local = p[0], dom = p[1];
+    if(PERSONALES.indexOf(dom) >= 0) return "personal";
+    var base = local.replace(/[^a-z]/g, "");
+    for(var i = 0; i < BUZONES.length; i++){
+      if(base === BUZONES[i] || base.indexOf(BUZONES[i]) === 0) return "area";
+    }
+    if(/^[a-z]+[._-][a-z]+$/.test(local) || /^[a-z]{1,2}[._-]?[a-z]{4,}$/.test(local))
+      return "profesional";
+    return "area";
+  }
+
+  /* Devuelve [valorParaGuardar, valorNormalizado] o null si no sirve. */
+  function canonico(tipo, v){
+    v = String(v || "").trim();
+    if(!v) return null;
+    if(tipo === "correo"){
+      v = v.toLowerCase();
+      return /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(v) ? [v, v] : null;
+    }
+    if(tipo === "telefono" || tipo === "whatsapp"){
+      var d = v.replace(/\D/g, "");
+      if(d.length < 7) return null;
+      return [v, d.slice(-10)];
+    }
+    /* Facebook sirve las páginas sin nombre de usuario como
+       `profile.php?id=…`: ahí el identificador vive en la query y tirarla
+       dejaría el handle en «profile.php», que no lleva a ninguna parte. */
+    if(/profile\.php/i.test(v)){
+      var m = v.match(/[?&]id=(\d+)/);
+      if(m) return ["https://www.facebook.com/profile.php?id=" + m[1], "profile.php?id=" + m[1]];
+    }
+    var h = v.replace(/[?#].*$/, "").replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+    if(DOMINIOS[tipo]) h = h.replace(DOMINIOS[tipo], "");
+    h = h.replace(/^[\/@\s]+|[\/@\s]+$/g, "").toLowerCase();
+    if(!h) return null;
+    return [SITIOS[tipo].replace("%s", h), h];
+  }
+
+  /* Lo capturado en esta sesión, por NIT. Se guarda en memoria para repintar
+     sin volver a pedirlo: el payload del tablero es de la última corrida del
+     pipeline y no sabe nada de lo que se acaba de escribir. */
+  var CAPTURADO = {};
+
+  function api(ruta, opciones){
+    if(!API) return Promise.reject(new Error("sin conexión"));
+    var o = opciones || {};
+    return fetch(API.url + "/rest/v1/" + ruta, {
+      method: o.method || "GET",
+      headers: {
+        "apikey": API.anon,
+        "Authorization": "Bearer " + API.token,
+        "Content-Type": "application/json",
+        "Accept-Profile": "captura",
+        "Content-Profile": "captura",
+        "Prefer": o.prefer || "return=representation"
+      },
+      body: o.body ? JSON.stringify(o.body) : undefined
+    }).then(function(r){
+      /* La sesión dura una hora y la herramienta se tiene abierta mucho más.
+         Un 401 no es un fallo que haya que depurar: es que caducó, y lo que
+         hay que hacer es recargar. Decirlo así evita que alguien pierda lo
+         tecleado intentando entender un mensaje de PostgREST. */
+      if(r.status === 401 || r.status === 403){
+        throw new Error("la sesión caducó · recarga la página y vuelve a guardar");
+      }
+      if(!r.ok) return r.text().then(function(t){ throw new Error(t || ("HTTP " + r.status)); });
+      return r.status === 204 ? null : r.json();
+    });
+  }
+
+  function cargarCapturado(nit){
+    if(!API) return Promise.resolve([]);
+    return api("persona?nit=eq." + encodeURIComponent(nit) +
+               "&select=id,nombre,cargo,confirmado,canal(id,tipo,valor,ambito,confirmado)")
+      .then(function(filas){ CAPTURADO[nit] = filas || []; return CAPTURADO[nit]; });
+  }
+
   function abrirPerfil(id){
     var r = null;
     for(var i = 0; i < ROWS.length; i++){ if(ROWS[i][C.nit] === id){ r = ROWS[i]; break; } }
@@ -1406,10 +1591,61 @@
        dominio desde el que se escribe.
        ──────────────────────────────────────────────────────────────────── */
     var GENTE = (window.DATOS.contactos || {})[id] || [];
+    var porTier = {1:"decide", 2:"presupuesto", 3:"vive el problema", 4:"ruta alterna"};
+
+    /* Los cargos que esta empresa todavía no tiene cubiertos. Se comparan por
+       CATEGORÍA y no por el texto del cargo: «Gerente General», «GERENTE
+       GENERAL S.A.» y «Gte. general» son el mismo puesto, y comparar cadenas
+       los daría por tres huecos distintos. */
+    var cubiertos = {};
+    GENTE.forEach(function(g){ if(g[6]) cubiertos[g[6]] = true; });
+
+    /* Lo capturado en esta sesión todavía no ha pasado por el clasificador
+       —eso ocurre en `traer_captura.py`— así que no tiene categoría con la
+       que comparar. Se compara por el TEXTO del cargo contra la etiqueta del
+       hueco, que es exactamente lo que se guardó al llenarlo. Un cargo
+       escrito a mano en «otro cargo» no casa con ninguna etiqueta, y eso es
+       lo correcto: no cubre ninguno de los huecos que el motor reconoce. */
+    var porTexto = {};
+    (CAPTURADO[id] || []).forEach(function(p){
+      if(p.cargo) porTexto[claveNombre(p.cargo)] = true;
+    });
+    var huecos = (window.DATOS.cargos || []).filter(function(c){
+      return !cubiertos[c.cat] && !porTexto[claveNombre(c.etiqueta)];
+    });
+
+    h += "<section><h3>Quién decide · " + GENTE.length +
+      (GENTE.length === 1 ? " persona" : " personas") + "</h3>";
+
+    /* ── Lo que falta, arriba ──────────────────────────────────────────────
+       Va antes de la gente que ya hay, y no después, porque el trabajo es
+       llenar huecos: lo primero que se ve al abrir una empresa tiene que ser
+       lo que queda por hacer en ella. */
+    if(API){
+      h += '<div class="huecos" data-nit="' + esc(id) + '">' +
+        huecos.map(function(c){
+          return '<div class="hueco" data-cat="' + esc(c.cat) + '" data-cargo="' +
+            esc(c.etiqueta) + '">' +
+            '<span class="et"><b>' + esc(c.etiqueta) + "</b></span>" +
+            '<input type="text" class="cap-nombre" placeholder="nombre completo…">' +
+            '<span class="tier">T' + c.tier + "</span></div>";
+        }).join("") +
+        '<div class="hueco" data-cat="" data-cargo="">' +
+          '<span class="et"><input type="text" class="cap-cargo" placeholder="otro cargo…"></span>' +
+          '<input type="text" class="cap-nombre" placeholder="nombre completo…">' +
+          '<span class="tier">—</span></div>' +
+        "</div>";
+      if(!huecos.length){
+        h += '<p class="nota">Los cargos que el motor reconoce ya están cubiertos. ' +
+          "Con «otro cargo» se añade cualquier otro.</p>";
+      }
+    } else {
+      h += '<p class="aviso">Sólo lectura: esta copia no tiene sesión. ' +
+        "Para capturar contactos entra por <b>/portal/ariad</b>.</p>";
+    }
+
     if(GENTE.length){
-      var porTier = {1:"decide", 2:"presupuesto", 3:"vive el problema", 4:"ruta alterna"};
-      h += "<section><h3>Quién decide · " + GENTE.length +
-        (GENTE.length === 1 ? " persona" : " personas") + '</h3><div class="gente">' +
+      h += '<div class="gente">' +
         GENTE.map(function(g){
           var nombre = g[0], cargo = g[1], tier = g[2], estado = g[3];
           var vias = g[5] || [];
@@ -1423,31 +1659,63 @@
             "</div>" + marca + "</div>" +
             (vias.length ? '<div class="vias">' + vias.map(function(v){
               var tipo = v[0], valor = v[1], ambito = v[2], est = v[3], c = v[4];
+              var digitos = String(valor).replace(/[^0-9+]/g, "");
+              // Un perfil pintado como texto plano hay que seleccionarlo,
+              // copiarlo y pegarlo en otra pestaña. El punto de esta sección
+              // es tener por dónde escribirle: si no es clicable, no sirve.
               var enlace = tipo === "correo"
                 ? '<a href="mailto:' + esc(valor) + '">' + esc(valor) + "</a>"
                 : tipo === "telefono"
-                ? '<a href="tel:' + esc(String(valor).replace(/[^0-9+]/g, "")) + '">' + esc(valor) + "</a>"
+                ? '<a href="tel:' + esc(digitos) + '">' + esc(valor) + "</a>"
+                : tipo === "whatsapp"
+                ? '<a href="https://wa.me/' + esc(digitos.replace(/^\+?(57)?/, "57")) +
+                  '" target="_blank" rel="noopener">' + esc(valor) + "</a>"
+                : /^https?:\/\//.test(valor)
+                // El handle, no la URL entera: «anaruiz» se lee, y
+                // «https://www.instagram.com/anaruiz» desborda la ficha. De
+                // qué red es lo dice la etiqueta de al lado.
+                ? '<a href="' + esc(valor) + '" target="_blank" rel="noopener">' +
+                  esc(valor.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) + "</a>"
                 : esc(valor);
               // `area` es un buzón funcional: existe y contesta, pero no es de
               // esta persona. Se dice, para que nadie lo trate como nominal.
               //
-              // Sólo tiene sentido en correos: los teléfonos entran todos con
-              // ambito «area» por defecto, y rotular «buzón de área» un celular
-              // es decir una cosa que no significa nada.
-              var etiq = tipo !== "correo" ? ""
-                : ambito === "area" ? "buzón de área"
-                : ambito === "personal" ? "personal" : "";
+              // En el teléfono NO se usa el ámbito para rotular: las fuentes
+              // automáticas lo meten todo como «area» por defecto, así que un
+              // celular de REPS saldría rotulado «fijo», que es mentir. Se
+              // deduce del número: en Colombia un celular son diez dígitos que
+              // empiezan por 3, y eso es el plan de numeración, no una
+              // conjetura sobre quién publicó el dato.
+              //
+              // En las redes la etiqueta dice de qué red es, que con seis
+              // posibles ya no se adivina mirando el handle.
+              var soloNum = digitos.replace(/^\+?57/, "");
+              var etiq = tipo === "correo"
+                ? (ambito === "area" ? "buzón de área"
+                   : ambito === "personal" ? "personal" : "")
+                : tipo === "telefono"
+                ? (/^3\d{9}$/.test(soloNum) ? "celular" : "fijo")
+                : tipo;
               return '<div class="via">' + enlace +
                 (etiq ? '<span class="marca2">' + etiq + "</span>" : "") +
-                (est === "inferido" && c < 40 ? '<span class="marca2 duda">sin confirmar</span>' : "") +
+                // <= y no <: un dato deducido a mano entra con 40 exactos, y
+                // con el corte estricto se veía igual de firme que uno que
+                // dos fuentes confirman. Los de patrón entran con 25 y los de
+                // SECOP con 60, que es lo que este umbral separa.
+                (est === "inferido" && c <= 40 ? '<span class="marca2 duda">sin confirmar</span>' : "") +
                 "</div>";
             }).join("") + "</div>" : '<p class="nota">Sin vía de contacto propia.</p>') +
             "</div>";
-        }).join("") + "</div>" +
-        '<p class="nota">Cruce de REPS, RUES, SECOP y el sitio de la empresa. ' +
-        "«Verificado» significa que dos fuentes independientes coinciden, no que " +
-        "alguien lo haya comprobado por teléfono.</p></section>";
+        }).join("") + "</div>";
     }
+
+    h += '<div class="gente" id="capGente"></div>' +
+      '<p class="nota">Cruce de REPS, RUES, SECOP y el sitio de la empresa. ' +
+      "«Verificado» significa que dos fuentes independientes coinciden, no que " +
+      "alguien lo haya comprobado por teléfono." +
+      (API ? " Lo que captures acá entra como verificado con 90 y baja a la base " +
+             "con <b>traer_captura.py</b>." : "") +
+      "</p></section>";
 
     var sm = r[C.sedes_mun];
     if(sm){
@@ -1521,6 +1789,18 @@
     $("perfilCuerpo").innerHTML = h;
     $("perfilCuerpo").scrollTop = 0;
 
+    /* Lo ya capturado se pide al abrir y se pinta cuando llega. No se espera
+       antes de mostrar el perfil: el resto de la ficha sale del payload y ya
+       está listo, y bloquearla por una petición de red haría lento lo que hoy
+       es instantáneo. Si la petición falla, la ficha sigue sirviendo. */
+    if(API){
+      cargarCapturado(id).then(function(){
+        if(perfilActual === id) pintarCapturado(id);
+      }).catch(function(e){
+        if(perfilActual === id) avisoCaptura("No se pudo leer lo capturado: " + e.message);
+      });
+    }
+
     $("perfilSel").onclick = function(){
       if(sel.has(id)) sel.delete(id); else sel.add(id);
       pintar();
@@ -1555,6 +1835,154 @@
       $("perfilCerrar").focus();
     });
   }
+
+  /* ── La mecánica de la captura ────────────────────────────────────────────
+     Un hueco es una fila con un cargo y un campo de nombre. Al escribir en él
+     se despliega debajo el bloque de canales, y sólo uno está abierto a la
+     vez: con diez campos de contacto por persona, dos formularios abiertos no
+     caben en la ficha y se pierde de vista cuál se está llenando.
+     ──────────────────────────────────────────────────────────────────────── */
+
+  function avisoCaptura(txt, clase){
+    var e = document.querySelector("#perfilCuerpo .estado");
+    if(e){ e.textContent = txt; e.className = "estado " + (clase || ""); }
+  }
+
+  function bloqueCanales(){
+    return '<div class="canales">' + CANALES.map(function(c){
+      return '<div class="canal"><span class="et2">' + c.et + "</span>" +
+        '<input type="text" data-canal="' + c.k + '" placeholder="—"></div>';
+    }).join("") + "</div>" +
+    '<div class="acciones">' +
+      '<label class="check" style="font-size:12px"><input type="checkbox" class="cap-conf" checked> lo vi o me lo dijeron</label>' +
+      '<span class="estado"></span>' +
+      '<button type="button" class="btn ghost cap-cancelar">Cancelar</button>' +
+      '<button type="button" class="btn primary cap-guardar">Guardar</button>' +
+    "</div>" +
+    '<p class="nota">Sin marcar, el dato entra como <b>sin confirmar</b>: es para lo que ' +
+    "se deduce —un correo por patrón, un homónimo— y se distingue en la ficha.</p>";
+  }
+
+  function abrirHueco(fila){
+    var ya = document.querySelector("#perfilCuerpo .cap-form");
+    if(ya){
+      /* Si el que está abierto tiene algo escrito, no se cierra solo: se
+         perdería lo tecleado sin avisar. */
+      var lleno = Array.prototype.some.call(ya.querySelectorAll("input[data-canal]"),
+        function(i){ return i.value.trim(); });
+      if(lleno && !confirm("Hay datos sin guardar en el otro cargo. ¿Descartarlos?")) return false;
+      ya.parentNode.removeChild(ya);
+    }
+    var d = document.createElement("div");
+    d.className = "cap-form";
+    d.innerHTML = bloqueCanales();
+    fila.parentNode.insertBefore(d, fila.nextSibling);
+    return true;
+  }
+
+  function guardarPersona(fila, form, nit){
+    var nombre = (fila.querySelector(".cap-nombre").value || "").trim();
+    var campoCargo = fila.querySelector(".cap-cargo");
+    var cargo = campoCargo ? (campoCargo.value || "").trim() : fila.getAttribute("data-cargo");
+    var conf = form.querySelector(".cap-conf").checked;
+    var est = form.querySelector(".estado");
+
+    if(nombre.split(/\s+/).filter(Boolean).length < 2){
+      est.textContent = "Falta el nombre completo (nombre y apellido)."; est.className = "estado mal";
+      return;
+    }
+    /* Se recogen y validan TODOS los canales antes de escribir nada. Guardar
+       la persona y descubrir después que un canal estaba mal dejaría media
+       captura en la base y a quien la escribió sin saber cuál entró. */
+    var canales = [], malos = [];
+    CANALES.forEach(function(c){
+      var v = (form.querySelector('[data-canal="' + c.k + '"]').value || "").trim();
+      if(!v) return;
+      var r = canonico(c.tipo, v);
+      if(!r){ malos.push(c.et); return; }
+      canales.push({nit: nit, tipo: c.tipo, valor: r[0], valor_norm: r[1],
+                    ambito: c.ambito || ambitoCorreo(r[0]), confirmado: conf});
+    });
+    if(malos.length){
+      est.textContent = "No se entiende: " + malos.join(", "); est.className = "estado mal";
+      return;
+    }
+
+    var btn = form.querySelector(".cap-guardar");
+    btn.disabled = true;
+    est.textContent = "Guardando…"; est.className = "estado";
+
+    api("persona", {method:"POST", body:[{
+      nit: nit, nombre_clave: claveNombre(nombre), nombre: nombre,
+      cargo: cargo || null, confirmado: conf, fuente: "captura en Ariad"
+    }], prefer:"return=representation,resolution=merge-duplicates"})
+      .then(function(filas){
+        var pid = filas && filas[0] && filas[0].id;
+        if(!pid) throw new Error("Supabase no devolvió la persona");
+        if(!canales.length) return [];
+        canales.forEach(function(c){ c.persona_id = pid; });
+        return api("canal", {method:"POST", body:canales,
+                             prefer:"return=representation,resolution=merge-duplicates"});
+      })
+      .then(function(){
+        est.textContent = "Guardado."; est.className = "estado ok";
+        return cargarCapturado(nit);
+      })
+      .then(function(){
+        if(perfilActual === nit) abrirPerfil(nit);   // repinta con el hueco ya cubierto
+      })
+      .catch(function(e){
+        btn.disabled = false;
+        est.textContent = "No se guardó: " + e.message; est.className = "estado mal";
+      });
+  }
+
+  function pintarCapturado(nit){
+    var host = $("capGente");
+    if(!host) return;
+    var filas = CAPTURADO[nit] || [];
+    if(!filas.length){ host.innerHTML = ""; return; }
+    host.innerHTML = filas.map(function(p){
+      var vias = (p.canal || []).map(function(c){
+        return '<div class="via">' + esc(c.valor) +
+          '<span class="marca2">' + esc(c.tipo) + "</span>" +
+          (c.confirmado ? "" : '<span class="marca2 duda">sin confirmar</span>') + "</div>";
+      }).join("");
+      return '<div class="quien"><div class="cab2"><div style="min-width:0">' +
+        '<span class="nom">' + esc(p.nombre) + "</span>" +
+        (p.cargo ? '<span class="car">' + esc(p.cargo) + " · capturado</span>" : "") +
+        '</div><span class="marca2 si">sin bajar</span></div>' +
+        (vias ? '<div class="vias">' + vias + "</div>" : "") + "</div>";
+    }).join("");
+  }
+
+  /* Delegación sobre el cuerpo del perfil: se repinta entero con innerHTML en
+     cada apertura, así que enganchar los manejadores a cada campo obligaría a
+     volver a hacerlo cada vez y a acordarse siempre. */
+  $("perfilCuerpo").addEventListener("input", function(e){
+    var campo = e.target;
+    if(!campo.classList.contains("cap-nombre")) return;
+    var fila = campo.closest(".hueco");
+    if(!fila) return;
+    var hay = fila.nextSibling && fila.nextSibling.classList &&
+              fila.nextSibling.classList.contains("cap-form");
+    if(campo.value.trim() && !hay) abrirHueco(fila);
+  });
+
+  $("perfilCuerpo").addEventListener("click", function(e){
+    var b = e.target;
+    if(b.classList.contains("cap-cancelar")){
+      var f = b.closest(".cap-form");
+      if(f) f.parentNode.removeChild(f);
+      return;
+    }
+    if(b.classList.contains("cap-guardar")){
+      var form = b.closest(".cap-form");
+      var fila = form.previousSibling;
+      var host = fila.closest(".huecos");
+      guardarPersona(fila, form, host.getAttribute("data-nit"));
+    }
+  });
 
   function cerrarPerfil(){
     if(!perfilActual) return;

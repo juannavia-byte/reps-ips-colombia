@@ -6,3 +6,19 @@ __pycache__/
 .DS_Store
 tablero/datos.js
 dist/contactos_*.csv
+# El tablero construido lleva dentro las 20.398 personas con su nombre, su
+# cargo y sus vías de contacto. Estuvo versionado en un repositorio PÚBLICO
+# hasta el 2026-09-22, y la rama gh-pages lo servía además sin sesión en
+# juannavia-byte.github.io. Es un artefacto de construcción: se regenera con
+# `build_tablero.py` en dos minutos y no tiene por qué estar en el historial.
+dist/tablero.html
+dist/*.json
+# Las hojas de trabajo se llenan con nombres, celulares y correos de personas.
+# Un CSV así versionado queda en el historial para siempre, y suprimir un dato
+# ante una solicitud de habeas data dejaría de ser posible: se borraría de la
+# base y seguiría en cualquier clon del repo. La base es la fuente de verdad;
+# estas hojas son de paso.
+dist/captura.csv
+dist/investigar.csv
+dist/llamadas.csv
+dist/llamadas-guion.txt
