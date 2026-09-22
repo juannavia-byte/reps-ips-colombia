@@ -368,6 +368,9 @@
     border:1px solid var(--line-strong); color:var(--muted); white-space:nowrap;
   }
   .chip.nom{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
+  /* Dato observado, no derivado. Se distingue del chip «nómina» —que marca un
+     método de estimación— porque aquí no se estimó nada: alguien lo contó. */
+  .chip.real{border-color:var(--accent-ink); color:var(--accent-ink); font-weight:700}
   .chip.ese{border-color:var(--warn); color:var(--warn); background:var(--warn-soft)}
   .delta{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; display:block; font-size:12px}
   .delta.up{color:var(--accent)}
@@ -1395,11 +1398,23 @@
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
 
-  function filaBarra(etiqueta, detalle, valor, max, esFactor){
+  function filaBarra(etiqueta, detalle, valor, max, esFactor, decimales){
+    // `decimales` por defecto 2, que es lo que necesitan los scores y los
+    // multiplicadores. Los conteos de personas pasan 0: «11,00 personas» se
+    // lee como un error de formato, no como un dato.
+    var d = decimales == null ? 2 : decimales;
     return '<div class="barra"><div class="et">' + esc(etiqueta) +
       (detalle ? "<small>" + esc(detalle) + "</small>" : "") +
       '<div class="pista"><i style="width:' + pct(valor, max).toFixed(1) + '%"></i></div></div>' +
-      '<div class="n">' + valor.toFixed(2) + (esFactor ? "×" : "") + "</div></div>";
+      '<div class="n">' + (d === 0 ? fmt(valor) : valor.toFixed(d)) +
+      (esFactor ? "×" : "") + "</div></div>";
+  }
+
+  /* Pesos colombianos en millones. `corto` da «1095,7M» para mil millones,
+     que se lee mal; una nómina pública se habla en millones al mes. */
+  function millones(v){
+    if(v == null) return "·";
+    return "$" + Math.round(v / 1e6).toLocaleString("es-CO") + " M";
   }
 
   function bloqueDatos(pares){
@@ -1674,6 +1689,48 @@
        mentira cuesta — una secuencia contra un buzón inventado quema el
        dominio desde el que se escribe.
        ──────────────────────────────────────────────────────────────────── */
+    /* ── Planta de la entidad ─────────────────────────────────────────────
+       El conteo observado que publica Función Pública (SIGEP II), por NIT.
+
+       Va en su propia sección y NO dentro del bloque de planta estimada,
+       porque no son el mismo grano: aquélla estima cuánta gente atiende
+       pacientes en ESTE prestador, y ésta cuenta la planta de la entidad
+       entera. Para el consultorio de una alcaldía las dos cifras difieren en
+       dos órdenes de magnitud y ninguna está mal.
+
+       Para vender un colectivo, la que importa es ésta: el asegurado es el
+       empleador, que es quien tiene el NIT.
+       ─────────────────────────────────────────────────────────────────── */
+    var PL = (window.DATOS.planta || {})[id];
+    if(PL){
+      var tramos = [["hasta 29", PL.edades[0]], ["30–39", PL.edades[1]],
+                    ["40–49", PL.edades[2]], ["50–62", PL.edades[3]],
+                    ["63 y más", PL.edades[4]]];
+      var maxT = tramos.reduce(function(a,x){ return Math.max(a, x[1]); }, 0);
+      var mayores = PL.edades[3] + PL.edades[4];
+      var pctMay = PL.total ? Math.round(mayores / PL.total * 100) : 0;
+
+      h += "<section><h3>Planta de la entidad · dato observado</h3>" +
+        bloqueDatos([
+          ["Empleados", fmt(PL.total)],
+          ["Salario promedio", PL.salario ? "$" + fmt(Math.round(PL.salario)) : "·"],
+          ["Nómina mensual", millones(PL.nomina)],
+          ["50 años o más", pctMay + " %"]
+        ]) +
+        '<div class="barras">' + tramos.map(function(t){
+          // Sin detalle: el número ya va a la derecha y repetirlo como
+          // «11 personas  11» es ruido.
+          return filaBarra(t[0], "", t[1], maxT, false, 0);
+        }).join("") + "</div>" +
+        '<p class="nota">Función Pública · SIGEP II, corte ' + esc(PL.corte) + ". " +
+        (PL.unidades > 1
+          ? "Suma <b>" + PL.unidades + " unidades</b> que comparten este NIT, porque el empleador es el mismo. "
+          : "") +
+        "Cuenta la planta de <b>" + esc(PL.entidad) + "</b>, no la de este prestador: " +
+        "es la cifra que dimensiona un colectivo, porque el asegurado es quien tiene el NIT. " +
+        "La nómina es derivada (empleados × salario promedio), no una cifra contable.</p></section>";
+    }
+
     var GENTE = (window.DATOS.contactos || {})[id] || [];
     var porTier = {1:"decide", 2:"presupuesto", 3:"vive el problema", 4:"ruta alterna"};
 
@@ -2198,8 +2255,16 @@
         '<td class="num" data-et="Quirófanos">' + fmt(r[C.salas_cirugia]) + "</td>" +
         '<td class="num" data-et="Consultorios">' + fmt(r[C.consultorios]) + "</td>" +
         '<td class="num" data-et="Servicios">' + fmt(r[C.servicios]) + "</td>" +
+        // El número es SIEMPRE la estimación del prestador, porque es sobre
+        // ella que operan el orden y los filtros de tamaño. Poner aquí la
+        // planta de la entidad haría que filtrar «planta 50–500» mostrara un
+        // 2.457 — una incoherencia visible entre lo que se pide y lo que sale.
+        //
+        // Que existe el dato observado se dice con un distintivo; el número va
+        // en la ficha, en su propia sección y con su propia explicación.
         '<td class="num" data-et="Planta">' + fmt(r[C.planta]) +
-          (r[C.metodo] === "nom" ? ' <span class="chip nom">nómina</span>' : "") + "</td>" +
+          (r[C.metodo] === "nom" ? ' <span class="chip nom">nómina</span>' : "") +
+          ((window.DATOS.planta || {})[id] ? ' <span class="chip real">SIGEP</span>' : "") + "</td>" +
         '<td class="num" data-et="Crec. 19→21">' + crecimiento(r) + "</td>" +
         '<td class="band" data-et="Fuerza laboral">' + (r[C.fl_bajo] == null ? "·" : fmt(r[C.fl_bajo]) + "–" + fmt(r[C.fl_alto])) + "</td>" +
         '<td class="num" data-et="Serv. nuevos">' + (r[C.serv_nuevos_12m] || "·") + "</td>" +
