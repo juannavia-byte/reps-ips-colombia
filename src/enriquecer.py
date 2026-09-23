@@ -125,6 +125,43 @@ def clave_nombre(s: str) -> str:
     return " ".join(sorted(toks))
 
 
+# El separador de cargos. Es «·» y no una coma porque una coma aparece dentro
+# de un cargo solo («Gerente, sede norte») y partiría por donde no debe.
+SEP_CARGOS = " · "
+_PARTE_CARGO = re.compile(r"\s*[·;|]\s*|\s+/\s+")
+
+
+def cargos_de(txt: str) -> list[str]:
+    """Los cargos que hay en un campo, que puede traer varios."""
+    return [t.strip() for t in _PARTE_CARGO.split(txt or "") if t.strip()]
+
+
+def unir_cargos(*textos: str | None) -> str | None:
+    """
+    Los cargos de una persona, en uno solo y sin repetir.
+
+    La misma persona es representante legal Y gerente general en media
+    Colombia: en una IPS de municipio es la misma silla. El campo es uno, así
+    que los dos caben separados por «·» — la misma regla que usa el formulario
+    de captura del tablero, para que lo que se ve al teclear sea lo que queda
+    guardado.
+
+    Se compara por `clave_nombre` y no por el texto: «Gerente General» y
+    «GERENTE GENERAL S.A.» son la misma silla escrita por dos fuentes, y
+    compararlas como cadenas las daría por dos cargos distintos.
+    """
+    salida: list[str] = []
+    vistos: set[str] = set()
+    for txt in textos:
+        for cargo in cargos_de(txt or ""):
+            k = clave_nombre(cargo)
+            if not k or k in vistos:
+                continue
+            vistos.add(k)
+            salida.append(cargo)
+    return SEP_CARGOS.join(salida) or None
+
+
 def parece_persona(nombre: str) -> bool:
     """
     SECOP mete la razón social en el campo del representante legal con

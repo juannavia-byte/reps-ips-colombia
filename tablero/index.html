@@ -480,6 +480,27 @@
   .perfil .cap-form{
     border-left:2px solid var(--accent); padding:6px 0 8px 10px; margin:2px 0 8px;
   }
+  /* La acción sobre una persona que ya está en la lista. Discreta y pequeña:
+     está en cada tarjeta, y con el tamaño de un botón normal la ficha se leería
+     como una columna de botones con nombres al lado. */
+  /* La fila de edición lleva el cargo en su propio renglón. La unión de
+     cargos de una persona —«Representante legal · Gerente general»— no cabe
+     en el ancho de una etiqueta de hueco, y ahí es un campo que hay que poder
+     leer entero para saber qué se está a punto de borrar de él. */
+  .perfil .hueco.editable{flex-wrap:wrap}
+  .perfil .hueco.editable .et{flex:1 1 100%; min-width:0}
+  .perfil .hueco.editable .et input{width:100%}
+  .perfil .quien .acc2{margin-top:5px}
+  .perfil .quien .acc2 .btn{padding:3px 8px; font-size:11px}
+  .perfil .canal .cap-vaciar{flex:none; padding:1px 7px; font-size:13px; line-height:1.3}
+  /* El aviso de «esto es la misma persona». Va con el color del acento y no
+     con el gris de `.guia`: es la línea que evita partir a alguien en dos, y
+     tiene que leerse sin buscarla. */
+  .perfil .cap-form .misma{
+    background:var(--accent-soft); color:var(--accent-ink);
+    border:1px solid var(--accent);
+  }
+  .perfil .cap-form .misma b{color:var(--accent-ink)}
   .perfil .acciones{display:flex; align-items:center; gap:10px; margin-top:8px}
   .perfil .acciones .hint{margin-right:auto}
   /* El estado de guardado. Ocupa sitio siempre —aunque esté vacío— para que
@@ -1593,7 +1614,9 @@
   function cargarAvance(){
     if(!API) return Promise.resolve();
     return Promise.all([
-      traerTodo("persona?select=nit"),
+      // Lo retirado no cuenta: si contara, una empresa donde se capturó a
+      // alguien por error y se deshizo seguiría marcada como trabajada.
+      traerTodo("persona?select=nit&retirado=is.false"),
       traerTodo("empresa?select=nit,estado&estado=neq.pendiente")
     ]).then(function(r){
       AVANCE = {}; ESTADO = {};
@@ -1616,9 +1639,28 @@
 
   function cargarCapturado(nit){
     if(!API) return Promise.resolve([]);
+    /* `retirado=is.false` en los DOS niveles. El de arriba saca a la persona
+       retirada; el de abajo —el filtro sobre el recurso embebido— saca sus
+       canales retirados. Sin el segundo, un teléfono que se acaba de quitar
+       seguiría pintándose en la ficha y volvería prellenado al formulario.
+
+       `nombre_clave` se pide en vez de recalcularla: es la que decide la
+       identidad en la base, y leer la que está guardada en vez de volver a
+       derivarla evita que una divergencia entre `claveNombre` y
+       `clave_nombre` haga que la ficha funda distinto de como funde el
+       `unique`. */
     return api("persona?nit=eq." + encodeURIComponent(nit) +
-               "&select=id,nombre,cargo,confirmado,canal(id,tipo,valor,ambito,confirmado)")
-      .then(function(filas){ CAPTURADO[nit] = filas || []; return CAPTURADO[nit]; });
+               "&retirado=is.false&canal.retirado=is.false" +
+               "&select=id,nombre,nombre_clave,cargo,confirmado," +
+               "canal(id,tipo,valor,valor_norm,ambito,confirmado)")
+      .then(function(filas){
+        CAPTURADO[nit] = filas || [];
+        /* La columna de avance de la tabla se llenó de una vez al arrancar.
+           Sin esto, guardar no la mueve hasta recargar la página: se veía
+           «·» en una empresa que se acababa de trabajar. */
+        AVANCE[nit] = CAPTURADO[nit].length;
+        return CAPTURADO[nit];
+      });
   }
 
   function abrirPerfil(id){
@@ -1679,16 +1721,6 @@
         "</div></section>";
     }
 
-    /* ── Quién decide ───────────────────────────────────────────────────────
-       Las personas que encontró el motor de enriquecimiento, con su cargo y
-       sus vías de contacto.
-
-       Cada dato lleva SU propia marca, no la de la persona: el nombre puede
-       estar confirmado por dos fuentes oficiales y el correo ser una conjetura
-       de patrón. Pintarlos con la misma confianza sería mentir justo donde la
-       mentira cuesta — una secuencia contra un buzón inventado quema el
-       dominio desde el que se escribe.
-       ──────────────────────────────────────────────────────────────────── */
     /* ── Planta de la entidad ─────────────────────────────────────────────
        El conteo observado que publica Función Pública (SIGEP II), por NIT.
 
@@ -1731,146 +1763,33 @@
         "La nómina es derivada (empleados × salario promedio), no una cifra contable.</p></section>";
     }
 
-    var GENTE = (window.DATOS.contactos || {})[id] || [];
-    var porTier = {1:"decide", 2:"presupuesto", 3:"vive el problema", 4:"ruta alterna"};
+    /* ── Quién decide ───────────────────────────────────────────────────────
+       Las personas de esta empresa: las que encontró el motor de
+       enriquecimiento y las que capturó el equipo, EN UNA SOLA LISTA.
 
-    /* Los cargos que esta empresa todavía no tiene cubiertos. Se comparan por
-       CATEGORÍA y no por el texto del cargo: «Gerente General», «GERENTE
-       GENERAL S.A.» y «Gte. general» son el mismo puesto, y comparar cadenas
-       los daría por tres huecos distintos. */
-    var cubiertos = {};
-    GENTE.forEach(function(g){ if(g[6]) cubiertos[g[6]] = true; });
+       🔴 ANTES ERAN DOS BLOQUES SEGUIDOS, y quien estuviera en los dos se
+       veía dos veces en la misma ficha. Pasa en cuanto el pipeline vuelve a
+       correr: bajar lo capturado no borra su fila —está razonado en
+       supabase/captura.sql— así que la misma persona quedaba pintada como
+       «verificada» arriba y otra vez como «capturada» abajo, y no había forma
+       de saber que eran una. Ahora se funden por clave de nombre en
+       `fundirPersonas`, que es la misma regla con la que la base decide que
+       dos grafías son un solo ser humano.
 
-    /* Lo capturado en esta sesión todavía no ha pasado por el clasificador
-       —eso ocurre en `traer_captura.py`— así que no tiene categoría con la
-       que comparar. Se compara por el TEXTO del cargo contra la etiqueta del
-       hueco, que es exactamente lo que se guardó al llenarlo. Un cargo
-       escrito a mano en «otro cargo» no casa con ninguna etiqueta, y eso es
-       lo correcto: no cubre ninguno de los huecos que el motor reconoce. */
-    var porTexto = {};
-    (CAPTURADO[id] || []).forEach(function(p){
-      if(p.cargo) porTexto[claveNombre(p.cargo)] = true;
-    });
-    var huecos = (window.DATOS.cargos || []).filter(function(c){
-      return !cubiertos[c.cat] && !porTexto[claveNombre(c.etiqueta)];
-    });
+       Cada dato lleva SU propia marca, no la de la persona: el nombre puede
+       estar confirmado por dos fuentes oficiales y el correo ser una conjetura
+       de patrón. Pintarlos con la misma confianza sería mentir justo donde la
+       mentira cuesta — una secuencia contra un buzón inventado quema el
+       dominio desde el que se escribe.
 
-    h += "<section><h3>Quién decide · " + GENTE.length +
-      (GENTE.length === 1 ? " persona" : " personas") + "</h3>";
-
-    /* ── Lo que falta, arriba ──────────────────────────────────────────────
-       Va antes de la gente que ya hay, y no después, porque el trabajo es
-       llenar huecos: lo primero que se ve al abrir una empresa tiene que ser
-       lo que queda por hacer en ella. */
-    if(API){
-      /* El encabezado dice qué es esto y qué hay que hacer. Sin él, la lista
-         de cargos con un campo al lado no se explica sola: se lee como un
-         filtro más de los muchos que tiene la herramienta. */
-      h += '<p class="guia"><b>Falta por conseguir en esta empresa.</b> ' +
-        "Escribe el nombre junto al cargo y se abren los campos de contacto." +
-        (huecos.length ? " Son " + huecos.length +
-          (huecos.length === 1 ? " cargo" : " cargos") + "." : "") + "</p>";
-      h += '<div class="huecos" data-nit="' + esc(id) + '">' +
-        huecos.map(function(c){
-          return '<div class="hueco" data-cat="' + esc(c.cat) + '" data-cargo="' +
-            esc(c.etiqueta) + '">' +
-            '<span class="et"><b>' + esc(c.etiqueta) + "</b></span>" +
-            '<input type="text" class="cap-nombre" placeholder="¿quién es? nombre y apellido…">' +
-            '<span class="tier">T' + c.tier + "</span>" +
-            '<button type="button" class="btn ghost cap-abrir">+ contacto</button></div>';
-        }).join("") +
-        '<div class="hueco" data-cat="" data-cargo="">' +
-          '<span class="et"><input type="text" class="cap-cargo" placeholder="otro cargo…"></span>' +
-          '<input type="text" class="cap-nombre" placeholder="¿quién es? nombre y apellido…">' +
-          '<span class="tier">—</span>' +
-          '<button type="button" class="btn ghost cap-abrir">+ contacto</button></div>' +
-        "</div>";
-      if(!huecos.length){
-        h += '<p class="nota">Los cargos que el motor reconoce ya están cubiertos. ' +
-          "Con «otro cargo», abajo, se añade cualquier otro.</p>";
-      }
-      /* Buscar media hora y no encontrar a nadie es un resultado, y hay que
-         poder anotarlo: si no, esta empresa se ve mañana igual que una que
-         nadie ha tocado y se vuelve a trabajar entera. */
-      var est = ESTADO[id];
-      h += '<div class="revisar" data-nit="' + esc(id) + '">' +
-        (est === "revisada"
-          ? '<span class="marca2 si">✓ marcada como revisada</span>' +
-            '<button type="button" class="btn ghost cap-revisar" data-a="pendiente">Volver a pendiente</button>'
-          : '<input type="text" class="cap-nota" placeholder="por qué no dio nada (opcional)…">' +
-            '<button type="button" class="btn ghost cap-revisar" data-a="revisada">Revisada, no encontré a nadie</button>') +
-        '<span class="estado"></span></div>';
-    } else {
-      h += '<p class="aviso">Sólo lectura: esta copia no tiene sesión. ' +
-        "Para capturar contactos entra por <b>/portal/ariad</b>.</p>";
-    }
-
-    if(GENTE.length){
-      h += '<div class="gente">' +
-        GENTE.map(function(g){
-          var nombre = g[0], cargo = g[1], tier = g[2], estado = g[3];
-          var vias = g[5] || [];
-          var marca = estado === "verificado"
-            ? '<span class="marca2 si">verificado</span>'
-            : '<span class="marca2 duda">inferido</span>';
-          return '<div class="quien"><div class="cab2"><div style="min-width:0">' +
-            '<span class="nom">' + esc(nombre) + "</span>" +
-            (cargo ? '<span class="car">' + esc(cargo) +
-              (tier ? " · " + (porTier[tier] || "") : "") + "</span>" : "") +
-            "</div>" + marca + "</div>" +
-            (vias.length ? '<div class="vias">' + vias.map(function(v){
-              var tipo = v[0], valor = v[1], ambito = v[2], est = v[3], c = v[4];
-              var digitos = String(valor).replace(/[^0-9+]/g, "");
-              // Un perfil pintado como texto plano hay que seleccionarlo,
-              // copiarlo y pegarlo en otra pestaña. El punto de esta sección
-              // es tener por dónde escribirle: si no es clicable, no sirve.
-              var enlace = tipo === "correo"
-                ? '<a href="mailto:' + esc(valor) + '">' + esc(valor) + "</a>"
-                : tipo === "telefono"
-                ? '<a href="tel:' + esc(digitos) + '">' + esc(valor) + "</a>"
-                : tipo === "whatsapp"
-                ? '<a href="https://wa.me/' + esc(digitos.replace(/^\+?(57)?/, "57")) +
-                  '" target="_blank" rel="noopener">' + esc(valor) + "</a>"
-                : /^https?:\/\//.test(valor)
-                // El handle, no la URL entera: «anaruiz» se lee, y
-                // «https://www.instagram.com/anaruiz» desborda la ficha. De
-                // qué red es lo dice la etiqueta de al lado.
-                ? '<a href="' + esc(valor) + '" target="_blank" rel="noopener">' +
-                  esc(valor.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) + "</a>"
-                : esc(valor);
-              // `area` es un buzón funcional: existe y contesta, pero no es de
-              // esta persona. Se dice, para que nadie lo trate como nominal.
-              //
-              // En el teléfono NO se usa el ámbito para rotular: las fuentes
-              // automáticas lo meten todo como «area» por defecto, así que un
-              // celular de REPS saldría rotulado «fijo», que es mentir. Se
-              // deduce del número: en Colombia un celular son diez dígitos que
-              // empiezan por 3, y eso es el plan de numeración, no una
-              // conjetura sobre quién publicó el dato.
-              //
-              // En las redes la etiqueta dice de qué red es, que con seis
-              // posibles ya no se adivina mirando el handle.
-              var soloNum = digitos.replace(/^\+?57/, "");
-              var etiq = tipo === "correo"
-                ? (ambito === "area" ? "buzón de área"
-                   : ambito === "personal" ? "personal" : "")
-                : tipo === "telefono"
-                ? (/^3\d{9}$/.test(soloNum) ? "celular" : "fijo")
-                : tipo;
-              return '<div class="via">' + enlace +
-                (etiq ? '<span class="marca2">' + etiq + "</span>" : "") +
-                // <= y no <: un dato deducido a mano entra con 40 exactos, y
-                // con el corte estricto se veía igual de firme que uno que
-                // dos fuentes confirman. Los de patrón entran con 25 y los de
-                // SECOP con 60, que es lo que este umbral separa.
-                (est === "inferido" && c <= 40 ? '<span class="marca2 duda">sin confirmar</span>' : "") +
-                "</div>";
-            }).join("") + "</div>" : '<p class="nota">Sin vía de contacto propia.</p>') +
-            "</div>";
-        }).join("") + "</div>";
-    }
-
-    h += '<div class="gente" id="capGente"></div>' +
+       El cuerpo se pinta en `pintarQuien` y no acá: depende de lo capturado,
+       que llega por red DESPUÉS de abrir la ficha. Acá sólo van los
+       contenedores, y llenarlos dos veces —con lo que haya en memoria y otra
+       vez cuando llegue la respuesta— es lo que hace que la lista de huecos
+       deje de pedir un cargo que ya está capturado.
+       ──────────────────────────────────────────────────────────────────── */
+    h += '<section><h3 id="quienTitulo">Quién decide</h3>' +
+      '<div id="capZona"></div><div class="gente" id="capGente"></div>' +
       '<p class="nota">Cruce de REPS, RUES, SECOP y el sitio de la empresa. ' +
       "«Verificado» significa que dos fuentes independientes coinciden, no que " +
       "alguien lo haya comprobado por teléfono." +
@@ -1950,13 +1869,18 @@
     $("perfilCuerpo").innerHTML = h;
     $("perfilCuerpo").scrollTop = 0;
 
-    /* Lo ya capturado se pide al abrir y se pinta cuando llega. No se espera
-       antes de mostrar el perfil: el resto de la ficha sale del payload y ya
-       está listo, y bloquearla por una petición de red haría lento lo que hoy
-       es instantáneo. Si la petición falla, la ficha sigue sirviendo. */
+    /* Se pinta DOS VECES a propósito. Primero con lo que haya en memoria —que
+       en la segunda apertura de la misma empresa es todo— para que la ficha
+       salga completa al instante, y otra vez cuando llegue la respuesta.
+
+       No se espera antes de mostrar el perfil: el resto de la ficha sale del
+       payload y ya está listo, y bloquearla por una petición de red haría
+       lento lo que hoy es instantáneo. Si la petición falla, la ficha sigue
+       sirviendo con lo del motor. */
+    pintarQuien(id);
     if(API){
       cargarCapturado(id).then(function(){
-        if(perfilActual === id) pintarCapturado(id);
+        if(perfilActual === id) pintarQuien(id);
       }).catch(function(e){
         if(perfilActual === id) avisoCaptura("No se pudo leer lo capturado: " + e.message);
       });
@@ -1998,74 +1922,582 @@
   }
 
   /* ── La mecánica de la captura ────────────────────────────────────────────
-     Un hueco es una fila con un cargo y un campo de nombre. Al escribir en él
-     se despliega debajo el bloque de canales, y sólo uno está abierto a la
-     vez: con diez campos de contacto por persona, dos formularios abiertos no
-     caben en la ficha y se pierde de vista cuál se está llenando.
+     UNA FILA POR SER HUMANO, Y EDITABLE DESPUÉS.
+
+     🔴 QUÉ FALLABA. Guardar hacía un POST con
+     `Prefer: resolution=merge-duplicates` y SIN `on_conflict`. PostgREST, sin
+     ese parámetro, resuelve el conflicto por la LLAVE PRIMARIA — `id`, un
+     uuid que se genera en cada insert y que por tanto nunca choca. El ON
+     CONFLICT no entraba nunca, el INSERT seguía adelante, y era
+     `unique (nit, nombre_clave)` el que lo paraba: un 23505 de Postgres en la
+     cara de quien estaba escribiendo.
+
+     Se vio en Junical Medical, donde el representante legal y el gerente
+     general son la misma persona: el primer cargo entraba, el segundo moría,
+     y no había forma de añadirle el cargo a la fila que ya estaba. Y si el
+     nombre se teclaba con una variante —«Yuly Martínez» y «Yuly Andrea
+     Martínez»— las dos grafías pasaban el `unique` como personas distintas y
+     quedaban dos filas para un solo ser humano, sin nada que las rejuntara.
+
+     CÓMO QUEDA. Tres piezas:
+
+       1. `on_conflict` explícito en los dos POST, que es lo que hace que el
+          upsert sea un upsert.
+
+       2. Un solo camino de guardado —`guardarPersona`— que antes de escribir
+          busca A QUIÉN le está escribiendo: si ese nombre ya está capturado
+          en esta empresa, le AÑADE el cargo y los canales en vez de intentar
+          crear otra fila. Varios cargos caben en el mismo campo separados por
+          «·»; `clasificar` en Python recorre los patrones en orden de tier y
+          devuelve el primero que casa, así que «Representante legal · Gerente
+          general» baja como tier 1 igual que cada uno suelto.
+
+       3. El mismo formulario, abierto desde una persona que ya está en la
+          lista y prellenado, para corregir el nombre, los cargos y cada canal.
+          Renombrar una captura hasta que coincida con otra es la única forma
+          de decir «estas dos filas son la misma persona»: ahí se funden de
+          verdad, mudando los canales antes de retirar la que sobra.
+
+     Sólo un formulario abierto a la vez: con diez campos de contacto por
+     persona, dos no caben en la ficha y se pierde de vista cuál se está
+     llenando.
      ──────────────────────────────────────────────────────────────────────── */
+
+  var PORTIER = {1:"decide", 2:"presupuesto", 3:"vive el problema", 4:"ruta alterna"};
 
   function avisoCaptura(txt, clase){
     var e = document.querySelector("#perfilCuerpo .estado");
     if(e){ e.textContent = txt; e.className = "estado " + (clase || ""); }
   }
 
-  function bloqueCanales(){
-    return '<div class="canales">' + CANALES.map(function(c){
-      return '<div class="canal"><span class="et2">' + c.et + "</span>" +
-        '<input type="text" data-canal="' + c.k + '" placeholder="—"></div>';
-    }).join("") + "</div>" +
-    '<div class="acciones">' +
-      '<label class="check" style="font-size:12px"><input type="checkbox" class="cap-conf" checked> lo vi o me lo dijeron</label>' +
-      '<span class="estado"></span>' +
-      '<button type="button" class="btn ghost cap-cancelar">Cancelar</button>' +
-      '<button type="button" class="btn primary cap-guardar">Guardar</button>' +
-    "</div>" +
-    '<p class="nota">Sin marcar, el dato entra como <b>sin confirmar</b>: es para lo que ' +
-    "se deduce —un correo por patrón, un homónimo— y se distingue en la ficha.</p>";
+  /* Los errores de PostgREST están escritos para depurar, no para leerlos
+     mientras se captura. Los tres que de verdad salen se dicen en el idioma
+     del problema; el resto pasa tal cual, que es mejor que esconderlo. */
+  function legible(m){
+    m = String(m == null ? "" : m);
+    if(/duplicate key|23505/.test(m)){
+      return "ese dato ya está guardado en esta empresa, colgando de otra " +
+             "persona. Ábrela desde la lista y edítalo ahí.";
+    }
+    if(/PGRST204|PGRST100|does not exist/.test(m)){
+      return "falta aplicar supabase/captura_edicion.sql en Supabase " +
+             "(columna «retirado»).";
+    }
+    return m;
   }
 
-  function abrirHueco(fila){
-    var ya = document.querySelector("#perfilCuerpo .cap-form");
-    if(ya){
-      /* Si el que está abierto tiene algo escrito, no se cierra solo: se
-         perdería lo tecleado sin avisar. */
-      var lleno = Array.prototype.some.call(ya.querySelectorAll("input[data-canal]"),
-        function(i){ return i.value.trim(); });
-      if(lleno && !confirm("Hay datos sin guardar en el otro cargo. ¿Descartarlos?")) return false;
-      ya.parentNode.removeChild(ya);
+  /* ── Una persona, varios cargos ───────────────────────────────────────────
+     Un cargo por fila era el modelo, y en el campo hay un solo texto. Pero la
+     misma persona es representante legal Y gerente general en media Colombia
+     —en una IPS de municipio es la misma silla— así que los dos se guardan en
+     el mismo campo separados por «·», que es como ya se leen en la ficha.
+     ──────────────────────────────────────────────────────────────────────── */
+  function cargosDe(txt){
+    return String(txt == null ? "" : txt).split(/\s*[·;|]\s*|\s+\/\s+/)
+      .map(function(t){ return t.trim(); }).filter(Boolean);
+  }
+  function unirCargos(lista){ return lista.join(" · "); }
+  /* Se deduplica por clave de nombre y no por el texto: «Gerente General» y
+     «GERENTE GENERAL S.A.» son el mismo puesto escrito por dos fuentes. */
+  function cargosUnicos(lista){
+    var vistos = {};
+    return lista.filter(function(c){
+      var k = claveNombre(c);
+      if(!k || vistos[k]) return false;
+      vistos[k] = true;
+      return true;
+    });
+  }
+
+  /* ── Fundir personas ──────────────────────────────────────────────────────
+     Devuelve UNA entrada por ser humano, venga del motor de enriquecimiento o
+     de lo capturado. La clave es la que usa la base —tokens del nombre sin
+     tildes, en minúscula y ordenados— así que «ANA LUCIA RUIZ» y «RUIZ ANA
+     LUCIA» son una, y la que encontró el motor y la que capturó el equipo
+     también.
+
+     Lo que NO funde son dos grafías distintas del mismo ser humano: para la
+     clave son dos personas, y tienen que serlo, porque desde acá no hay forma
+     de distinguir un segundo nombre de más de una hermana con el mismo
+     apellido. Eso se arregla a mano, editando una y poniéndole el nombre de
+     la otra — ver `guardarPersona`.
+     ──────────────────────────────────────────────────────────────────────── */
+  function fundirPersonas(nit){
+    var gente = (window.DATOS.contactos || {})[nit] || [];
+    var porClave = {}, orden = [];
+
+    function entrada(clave, nombre){
+      if(!porClave[clave]){
+        porClave[clave] = {clave: clave, nombre: nombre, cargos: [], cats: {},
+                           tier: null, estado: null, vias: [], captura: null};
+        orden.push(porClave[clave]);
+      }
+      return porClave[clave];
     }
-    var d = document.createElement("div");
-    d.className = "cap-form";
-    d.innerHTML = bloqueCanales();
-    fila.parentNode.insertBefore(d, fila.nextSibling);
+
+    gente.forEach(function(g){
+      var e = entrada(claveNombre(g[0]), g[0]);
+      if(g[1]) e.cargos = e.cargos.concat(cargosDe(g[1]));
+      if(g[6]) e.cats[g[6]] = true;
+      if(g[2] != null && (e.tier == null || g[2] < e.tier)) e.tier = g[2];
+      if(g[3] === "verificado" || !e.estado) e.estado = g[3];
+      (g[5] || []).forEach(function(v){
+        e.vias.push({tipo: v[0], valor: v[1], ambito: v[2], estado: v[3], conf: v[4]});
+      });
+    });
+
+    (CAPTURADO[nit] || []).forEach(function(p){
+      var e = entrada(p.nombre_clave || claveNombre(p.nombre), p.nombre);
+      /* La grafía de la captura gana sobre la del motor: RUES y REPS escriben
+         en mayúsculas y quien la teclea la escribe como se lee, que es lo que
+         encabeza un correo. */
+      e.nombre = p.nombre;
+      e.captura = p;
+      if(p.cargo) e.cargos = e.cargos.concat(cargosDe(p.cargo));
+      if(p.confirmado) e.estado = "verificado";
+      else if(!e.estado) e.estado = "inferido";
+      (p.canal || []).forEach(function(c){
+        e.vias.push({tipo: c.tipo, valor: c.valor, norm: c.valor_norm,
+                     ambito: c.ambito,
+                     estado: c.confirmado ? "verificado" : "inferido",
+                     conf: c.confirmado ? 90 : 40, cid: c.id});
+      });
+    });
+
+    orden.forEach(function(e){
+      e.cargos = cargosUnicos(e.cargos);
+      /* El mismo teléfono puede venir del motor y de la captura —pasa en
+         cuanto el pipeline lo baja y lo vuelve a subir. Se pinta una vez, y
+         gana la de la captura: es la que lleva el id con el que se corrige. */
+      var donde = {}, unicas = [];
+      e.vias.forEach(function(v){
+        var r = canonico(v.tipo, v.valor);
+        var k = v.tipo + "|" + (v.norm || (r ? r[1] : String(v.valor).toLowerCase()));
+        if(donde[k] == null){ donde[k] = unicas.length; unicas.push(v); return; }
+        if(v.cid && !unicas[donde[k]].cid) unicas[donde[k]] = v;
+      });
+      e.vias = unicas;
+    });
+
+    /* Por tier: quien decide, primero. Es el orden en el que se trabaja una
+       empresa y el que ya traía el payload. */
+    orden.sort(function(a, b){
+      return (a.tier == null ? 9 : a.tier) - (b.tier == null ? 9 : b.tier);
+    });
+    return orden;
+  }
+
+  /* El rótulo de una vía.
+
+     En el teléfono NO se usa el ámbito: las fuentes automáticas lo meten todo
+     como «area» por defecto, así que un celular de REPS saldría rotulado
+     «fijo», que es mentir. Se deduce del número: en Colombia un celular son
+     diez dígitos que empiezan por 3, y eso es el plan de numeración, no una
+     conjetura sobre quién publicó el dato.
+
+     En el correo sí: `area` es un buzón funcional —existe y contesta, pero no
+     es de esta persona— y se dice, para que nadie lo trate como nominal. En
+     las redes la etiqueta dice de qué red es, que con seis posibles ya no se
+     adivina mirando el handle. */
+  function etiquetaVia(v){
+    if(v.tipo === "telefono"){
+      var solo = String(v.valor).replace(/[^0-9+]/g, "").replace(/^\+?57/, "");
+      return /^3\d{9}$/.test(solo) ? "celular" : "fijo";
+    }
+    if(v.tipo === "correo"){
+      return v.ambito === "area" ? "buzón de área"
+           : v.ambito === "personal" ? "personal" : "";
+    }
+    return v.tipo;
+  }
+  /* En el formulario el rótulo va al lado de un campo, no de un dato: ahí
+     «buzón de área» sobra —eso se deduce del correo— y estorba. */
+  function etiquetaCampo(v){
+    return v.tipo === "telefono" ? etiquetaVia(v) : v.tipo;
+  }
+
+  function viaHTML(v){
+    var valor = v.valor, digitos = String(valor).replace(/[^0-9+]/g, "");
+    /* Un perfil pintado como texto plano hay que seleccionarlo, copiarlo y
+       pegarlo en otra pestaña. El punto de esta sección es tener por dónde
+       escribirle: si no es clicable, no sirve. */
+    var enlace = v.tipo === "correo"
+      ? '<a href="mailto:' + esc(valor) + '">' + esc(valor) + "</a>"
+      : v.tipo === "telefono"
+      ? '<a href="tel:' + esc(digitos) + '">' + esc(valor) + "</a>"
+      : v.tipo === "whatsapp"
+      ? '<a href="https://wa.me/' + esc(digitos.replace(/^\+?(57)?/, "57")) +
+        '" target="_blank" rel="noopener">' + esc(valor) + "</a>"
+      : /^https?:\/\//.test(valor)
+      /* El handle, no la URL entera: «anaruiz» se lee, y
+         «https://www.instagram.com/anaruiz» desborda la ficha. De qué red es
+         lo dice la etiqueta de al lado. */
+      ? '<a href="' + esc(valor) + '" target="_blank" rel="noopener">' +
+        esc(valor.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) + "</a>"
+      : esc(valor);
+
+    var etiq = etiquetaVia(v);
+    return '<div class="via">' + enlace +
+      (etiq ? '<span class="marca2">' + esc(etiq) + "</span>" : "") +
+      /* <= y no <: un dato deducido a mano entra con 40 exactos, y con el
+         corte estricto se veía igual de firme que uno que dos fuentes
+         confirman. Los de patrón entran con 25 y los de SECOP con 60, que es
+         lo que este umbral separa. */
+      (v.estado === "inferido" && v.conf <= 40
+        ? '<span class="marca2 duda">sin confirmar</span>' : "") +
+      "</div>";
+  }
+
+  function tarjetaPersona(p){
+    var marcas = "";
+    if(p.estado){
+      marcas += p.estado === "verificado"
+        ? '<span class="marca2 si">verificado</span>'
+        : '<span class="marca2 duda">inferido</span>';
+    }
+    /* «sin bajar» es lo capturado que todavía no ha pasado por
+       `traer_captura.py`: vive en Supabase y no en Ariad. Se dice porque
+       cambia dónde hay que ir a buscarlo si algo no cuadra. */
+    if(p.captura) marcas += ' <span class="marca2">sin bajar</span>';
+
+    var cargo = unirCargos(p.cargos);
+    return '<div class="quien" data-clave="' + esc(p.clave) + '">' +
+      '<div class="cab2"><div style="min-width:0">' +
+      '<span class="nom">' + esc(p.nombre) + "</span>" +
+      (cargo ? '<span class="car">' + esc(cargo) +
+        (p.tier ? " · " + (PORTIER[p.tier] || "") : "") + "</span>" : "") +
+      "</div>" + marcas + "</div>" +
+      (p.vias.length
+        ? '<div class="vias">' + p.vias.map(viaHTML).join("") + "</div>"
+        : '<p class="nota">Sin vía de contacto propia.</p>') +
+      /* El botón es lo que faltaba: una persona ya capturada no tenía dónde
+         tocarse. En la que trajo el motor dice otra cosa porque hace otra
+         cosa — crea su primera fila de captura para poder colgarle un
+         teléfono sin duplicarla. */
+      (API ? '<div class="acc2"><button type="button" class="btn ghost cap-editar">' +
+        (p.captura ? "Editar" : "Añadir contacto") + "</button></div>" : "") +
+      "</div>";
+  }
+
+  function zonaHuecos(nit, personas){
+    /* Los cargos que esta empresa todavía no tiene cubiertos.
+
+       Se comparan por CATEGORÍA lo que viene del motor —«Gerente General»,
+       «GERENTE GENERAL S.A.» y «Gte. general» son el mismo puesto, y comparar
+       cadenas los daría por tres huecos distintos— y por el TEXTO lo que
+       viene de la captura, que todavía no ha pasado por el clasificador: eso
+       ocurre en `traer_captura.py`. Un cargo escrito a mano en «otro cargo» no
+       casa con ninguna etiqueta, y eso es lo correcto: no cubre ninguno de los
+       huecos que el motor reconoce. */
+    var cubiertos = {}, porTexto = {};
+    personas.forEach(function(p){
+      Object.keys(p.cats).forEach(function(c){ cubiertos[c] = true; });
+      p.cargos.forEach(function(c){ porTexto[claveNombre(c)] = true; });
+    });
+    var huecos = (window.DATOS.cargos || []).filter(function(c){
+      return !cubiertos[c.cat] && !porTexto[claveNombre(c.etiqueta)];
+    });
+
+    /* ── Lo que falta, arriba ──────────────────────────────────────────────
+       Va antes de la gente que ya hay, y no después, porque el trabajo es
+       llenar huecos: lo primero que se ve al abrir una empresa tiene que ser
+       lo que queda por hacer en ella.
+
+       El encabezado dice qué es esto y qué hay que hacer. Sin él, la lista de
+       cargos con un campo al lado no se explica sola: se lee como un filtro
+       más de los muchos que tiene la herramienta. */
+    var h = '<p class="guia"><b>Falta por conseguir en esta empresa.</b> ' +
+      "Escribe el nombre junto al cargo y se abren los campos de contacto. " +
+      "Si es alguien que ya está en la lista de abajo, no se crea otra ficha: " +
+      "se le añade este cargo y lo que escribas." +
+      (huecos.length ? " Son " + huecos.length +
+        (huecos.length === 1 ? " cargo" : " cargos") + "." : "") + "</p>";
+
+    h += '<div class="huecos" data-nit="' + esc(nit) + '">' +
+      huecos.map(function(c){
+        return '<div class="hueco" data-cat="' + esc(c.cat) + '" data-cargo="' +
+          esc(c.etiqueta) + '">' +
+          '<span class="et"><b>' + esc(c.etiqueta) + "</b></span>" +
+          '<input type="text" class="cap-nombre" placeholder="¿quién es? nombre y apellido…">' +
+          '<span class="tier">T' + c.tier + "</span>" +
+          '<button type="button" class="btn ghost cap-abrir">+ contacto</button></div>';
+      }).join("") +
+      '<div class="hueco" data-cat="" data-cargo="">' +
+        '<span class="et"><input type="text" class="cap-cargo" placeholder="otro cargo…"></span>' +
+        '<input type="text" class="cap-nombre" placeholder="¿quién es? nombre y apellido…">' +
+        '<span class="tier">—</span>' +
+        '<button type="button" class="btn ghost cap-abrir">+ contacto</button></div>' +
+      "</div>";
+
+    if(!huecos.length){
+      h += '<p class="nota">Los cargos que el motor reconoce ya están cubiertos. ' +
+        "Con «otro cargo», arriba, se añade cualquier otro.</p>";
+    }
+
+    /* Buscar media hora y no encontrar a nadie es un resultado, y hay que
+       poder anotarlo: si no, esta empresa se ve mañana igual que una que nadie
+       ha tocado y se vuelve a trabajar entera. */
+    var est = ESTADO[nit];
+    return h + '<div class="revisar" data-nit="' + esc(nit) + '">' +
+      (est === "revisada"
+        ? '<span class="marca2 si">✓ marcada como revisada</span>' +
+          '<button type="button" class="btn ghost cap-revisar" data-a="pendiente">Volver a pendiente</button>'
+        : '<input type="text" class="cap-nota" placeholder="por qué no dio nada (opcional)…">' +
+          '<button type="button" class="btn ghost cap-revisar" data-a="revisada">Revisada, no encontré a nadie</button>') +
+      '<span class="estado"></span></div>';
+  }
+
+  /* Pinta el cuerpo de «Quién decide». Se llama al abrir la ficha, otra vez
+     cuando llega lo capturado, y después de cada guardado.
+
+     Repintar sólo esto —en vez de `abrirPerfil` entero, que es lo que hacía—
+     deja el desplazamiento de la ficha donde estaba, que importa cuando la
+     persona en la que se está trabajando queda a mitad de página. */
+  function pintarQuien(nit){
+    var lista = $("capGente");
+    if(!lista) return;
+    var personas = fundirPersonas(nit);
+    var tit = $("quienTitulo"), zona = $("capZona");
+
+    if(tit){
+      tit.textContent = "Quién decide · " + personas.length +
+        (personas.length === 1 ? " persona" : " personas");
+    }
+    if(zona){
+      zona.innerHTML = API ? zonaHuecos(nit, personas)
+        : '<p class="aviso">Sólo lectura: esta copia no tiene sesión. ' +
+          "Para capturar contactos entra por <b>/portal/ariad</b>.</p>";
+    }
+    lista.innerHTML = personas.length
+      ? personas.map(tarjetaPersona).join("")
+      : '<p class="nota">Nadie todavía.' +
+        (API ? " Escribe el primer nombre arriba." : "") + "</p>";
+  }
+
+  /* ── El formulario ────────────────────────────────────────────────────────
+     Lo que ya está guardado viene DENTRO, cada campo con el id de su fila
+     para poder corregirla en vez de crear otra al lado; vaciar uno de esos
+     campos la retira.
+
+     Debajo, un campo vacío por cada tipo de canal para añadir. Son dos
+     bloques y no uno porque una persona puede tener dos correos, y con un
+     solo campo por tipo el segundo no tendría dónde entrar ni dónde verse.
+     ──────────────────────────────────────────────────────────────────────── */
+  function bloqueForm(p){
+    var vias = (p && p.vias) || [];
+    var guardadas = vias.filter(function(v){ return v.cid; });
+    var delMotor = vias.filter(function(v){ return !v.cid; });
+    var h = '<p class="guia misma" hidden></p>';
+
+    if(guardadas.length){
+      h += '<div class="canales">' + guardadas.map(function(v){
+        return '<div class="canal"><span class="et2">' + esc(etiquetaCampo(v)) + "</span>" +
+          '<input type="text" data-cid="' + esc(v.cid) + '" data-tipo="' + esc(v.tipo) +
+          '" data-norm="' + esc(v.norm || "") + '" value="' + esc(v.valor) +
+          '" data-inicial="' + esc(v.valor) + '">' +
+          '<button type="button" class="btn ghost cap-vaciar" title="quitar este canal">×</button>' +
+          "</div>";
+      }).join("") + "</div>" +
+      '<p class="nota">Arriba, lo ya guardado: corrige el texto para arreglarlo, ' +
+      "o vacíalo con × para quitarlo de la ficha. No se borra de la base —desde " +
+      "el navegador nadie borra, está razonado en <b>supabase/captura.sql</b>—: " +
+      "queda retirado, con quién y cuándo.</p>";
+    }
+
+    if(delMotor.length){
+      h += '<p class="nota">' + delMotor.length +
+        (delMotor.length === 1 ? " vía viene" : " vías vienen") +
+        " del motor de enriquecimiento y no se edita" +
+        (delMotor.length === 1 ? "" : "n") + " acá: eso se corrige en el " +
+        "pipeline, o se saca por la lista de exclusión si alguien pidió no " +
+        "ser contactado.</p>";
+    }
+
+    h += '<div class="canales">' + CANALES.map(function(c){
+      return '<div class="canal"><span class="et2">' + c.et + "</span>" +
+        '<input type="text" data-canal="' + c.k + '" placeholder="—"></div>';
+    }).join("") + "</div>";
+
+    return h +
+      '<div class="acciones">' +
+        '<label class="check" style="font-size:12px"><input type="checkbox" class="cap-conf" checked> lo vi o me lo dijeron</label>' +
+        '<span class="estado"></span>' +
+        (p && p.captura
+          ? '<button type="button" class="btn ghost cap-quitar">Quitar persona</button>' : "") +
+        '<button type="button" class="btn ghost cap-cancelar">Cancelar</button>' +
+        '<button type="button" class="btn primary cap-guardar">Guardar</button>' +
+      "</div>" +
+      '<p class="nota">Sin marcar, el dato entra como <b>sin confirmar</b>: es para lo que ' +
+      "se deduce —un correo por patrón, un homónimo— y se distingue en la ficha.</p>";
+  }
+
+  /* La fila de nombre y cargo, para cuando el formulario no cuelga de un hueco
+     sino de una persona que ya está en la lista. Es el MISMO `.hueco` de
+     arriba a propósito: `guardarPersona` lee de él, y así hay un solo camino
+     de guardado para las dos entradas. */
+  function filaEditable(p){
+    var nom = (p && p.nombre) || "", car = unirCargos((p && p.cargos) || []);
+    return '<div class="hueco editable" data-cat="" data-cargo="">' +
+      '<span class="et"><input type="text" class="cap-cargo" placeholder="cargo…" value="' +
+      esc(car) + '" data-inicial="' + esc(car) + '"></span>' +
+      '<input type="text" class="cap-nombre" placeholder="nombre y apellido…" value="' +
+      esc(nom) + '" data-inicial="' + esc(nom) + '">' +
+      '<span class="tier">' + (p && p.tier ? "T" + p.tier : "—") + "</span></div>";
+  }
+
+  function siguienteForm(nodo){
+    var s = nodo.nextElementSibling;
+    return s && s.classList.contains("cap-form") ? s : null;
+  }
+
+  function cerrarFormAbierto(){
+    var ya = document.querySelector("#perfilCuerpo .cap-form");
+    if(!ya) return true;
+    /* Si el que está abierto tiene algo sin guardar, no se cierra solo: se
+       perdería lo tecleado sin avisar. Lo PRELLENADO no cuenta —está igual en
+       la base— así que se compara cada campo contra su valor inicial y no
+       contra el vacío. */
+    var tocado = Array.prototype.some.call(ya.querySelectorAll("input[type=text]"),
+      function(i){ return i.value.trim() !== (i.getAttribute("data-inicial") || ""); });
+    if(tocado && !confirm("Hay datos sin guardar. ¿Descartarlos?")) return false;
+    ya.parentNode.removeChild(ya);
     return true;
   }
 
+  function abrirForm(ancla, p, editando){
+    if(!cerrarFormAbierto()) return null;
+    var d = document.createElement("div");
+    d.className = "cap-form";
+    /* `data-pid` sólo al editar. Desde un hueco NO se pone a propósito: ahí el
+       nombre se está tecleando y puede cambiar a mitad, y un pid pegado a un
+       nombre que ya no es el que está en el campo haría que guardar fundiera
+       dos personas que nadie pidió fundir. */
+    if(editando && p && p.captura) d.setAttribute("data-pid", p.captura.id);
+    d.innerHTML = (editando ? filaEditable(p) : "") + bloqueForm(p);
+    ancla.parentNode.insertBefore(d, ancla.nextSibling);
+    return d;
+  }
+
+  /* Quién de la ficha se llama así. Es la mitad visible del arreglo: sin esto,
+     quien captura no tiene forma de saber que está a punto de añadirle un
+     cargo a alguien en vez de crear una persona nueva — y esa duda es justo la
+     que hacía teclear el nombre otra vez con una variante y partir en dos a la
+     misma persona. */
+  function personaEnFicha(nombre){
+    var clave = claveNombre(nombre);
+    if(!clave || !perfilActual) return null;
+    var hallada = null;
+    fundirPersonas(perfilActual).forEach(function(p){
+      if(p.clave === clave) hallada = p;
+    });
+    return hallada;
+  }
+
+  function avisoMisma(fila){
+    var form = fila.closest(".cap-form") || siguienteForm(fila);
+    var caja = form && form.querySelector(".misma");
+    if(!caja) return;
+    var campo = fila.querySelector(".cap-nombre");
+    var p = personaEnFicha(campo ? campo.value : "");
+    var propia = form.getAttribute("data-pid");
+    // Editando a alguien, que su propio nombre «ya esté» no es noticia.
+    if(!p || (propia && p.captura && p.captura.id === propia)){
+      caja.hidden = true; caja.innerHTML = "";
+      return;
+    }
+    caja.hidden = false;
+    caja.innerHTML = "<b>Es " + esc(p.nombre) + ", que ya está en la ficha</b>" +
+      (p.cargos.length ? " como " + esc(unirCargos(p.cargos)) : "") + ". " +
+      (propia
+        ? "Al guardar, las dos filas se funden en una y los contactos se mudan."
+        : "No se crea otra: se le añade este cargo y lo que escribas acá.");
+  }
+
+  /* ── Guardar ──────────────────────────────────────────────────────────────
+     Un solo camino para las dos entradas —un hueco y una persona de la
+     lista—, y es lo que hace que no se dupliquen: antes de escribir nada
+     decide A QUIÉN se le está escribiendo.
+     ──────────────────────────────────────────────────────────────────────── */
   function guardarPersona(fila, form, nit){
     var nombre = (fila.querySelector(".cap-nombre").value || "").trim();
     var campoCargo = fila.querySelector(".cap-cargo");
-    var cargo = campoCargo ? (campoCargo.value || "").trim() : fila.getAttribute("data-cargo");
+    var cargo = campoCargo ? (campoCargo.value || "").trim()
+                           : fila.getAttribute("data-cargo");
     var conf = form.querySelector(".cap-conf").checked;
     var est = form.querySelector(".estado");
+    var pid = form.getAttribute("data-pid") || null;
+    var editando = !!form.querySelector(".hueco");
 
     if(nombre.split(/\s+/).filter(Boolean).length < 2){
-      est.textContent = "Falta el nombre completo (nombre y apellido)."; est.className = "estado mal";
+      est.textContent = "Falta el nombre completo (nombre y apellido).";
+      est.className = "estado mal";
       return;
     }
+
+    var clave = claveNombre(nombre);
+    var destino = null, editada = null;
+    (CAPTURADO[nit] || []).forEach(function(p){
+      if((p.nombre_clave || claveNombre(p.nombre)) === clave) destino = p;
+      if(pid && p.id === pid) editada = p;
+    });
+
+    /* Renombrar una captura hasta que coincida con otra es la única forma de
+       decir «estas dos filas son la misma persona». Se funden de verdad —los
+       canales se mudan y la sobrante se retira— y no se deja al upsert, que
+       habría dejado los canales de la sobrante colgando de una fila retirada
+       y fuera de toda ficha. */
+    var fundir = editada && destino && destino.id !== editada.id ? editada : null;
+
+    /* Los cargos que quedan. Editando manda el campo: viene prellenado con
+       todos los que tiene, así que borrar uno de ahí es quitarlo, y lo único
+       que se le suma es lo de la fila con la que se funde. Desde un hueco
+       llega un solo cargo y se AÑADE a los que ya tenga, que es el arreglo
+       entero: el representante legal que también es gerente general deja de
+       ser dos intentos de insertar y pasa a ser un campo con los dos. */
+    var base = [];
+    if(editando){
+      if(fundir && destino) base = cargosDe(destino.cargo);
+    } else if(destino){
+      base = cargosDe(destino.cargo);
+    }
+    var cargos = cargosUnicos(base.concat(cargosDe(cargo)));
+
     /* Se recogen y validan TODOS los canales antes de escribir nada. Guardar
        la persona y descubrir después que un canal estaba mal dejaría media
        captura en la base y a quien la escribió sin saber cuál entró. */
-    var canales = [], malos = [];
+    var nuevos = [], corregir = [], retirar = [], malos = [];
+
     CANALES.forEach(function(c){
-      var v = (form.querySelector('[data-canal="' + c.k + '"]').value || "").trim();
+      var campo = form.querySelector('[data-canal="' + c.k + '"]');
+      var v = campo ? (campo.value || "").trim() : "";
       if(!v) return;
       var r = canonico(c.tipo, v);
       if(!r){ malos.push(c.et); return; }
-      canales.push({nit: nit, tipo: c.tipo, valor: r[0], valor_norm: r[1],
-                    ambito: c.ambito || ambitoCorreo(r[0]), confirmado: conf});
+      nuevos.push({nit: nit, tipo: c.tipo, valor: r[0], valor_norm: r[1],
+                   ambito: c.ambito || ambitoCorreo(r[0]), confirmado: conf,
+                   retirado: false});
     });
+
+    /* Y los ya guardados, uno por uno. Vaciar el campo es quitarlo: no hay
+       DELETE desde el navegador —está razonado en supabase/captura.sql— así
+       que se marca `retirado` y la fila se queda para poder contestar de
+       dónde salió el dato. */
+    Array.prototype.forEach.call(form.querySelectorAll("input[data-cid]"),
+      function(campo){
+        var cid = campo.getAttribute("data-cid");
+        var tipo = campo.getAttribute("data-tipo");
+        var v = (campo.value || "").trim();
+        if(!v){ retirar.push(cid); return; }
+        var r = canonico(tipo, v);
+        if(!r){ malos.push(etiquetaCampo({tipo: tipo, valor: v})); return; }
+        if(r[1] === campo.getAttribute("data-norm")) return;   // sin cambios
+        corregir.push({id: cid,
+                       cuerpo: {valor: r[0], valor_norm: r[1], confirmado: conf}});
+      });
+
     if(malos.length){
-      est.textContent = "No se entiende: " + malos.join(", "); est.className = "estado mal";
+      est.textContent = "No se entiende: " + malos.join(", ");
+      est.className = "estado mal";
       return;
     }
 
@@ -2073,76 +2505,196 @@
     btn.disabled = true;
     est.textContent = "Guardando…"; est.className = "estado";
 
-    api("persona", {method:"POST", body:[{
-      nit: nit, nombre_clave: claveNombre(nombre), nombre: nombre,
-      cargo: cargo || null, confirmado: conf, fuente: "captura en Ariad"
-    }], prefer:"return=representation,resolution=merge-duplicates"})
-      .then(function(filas){
-        var pid = filas && filas[0] && filas[0].id;
-        if(!pid) throw new Error("Supabase no devolvió la persona");
-        if(!canales.length) return [];
-        canales.forEach(function(c){ c.persona_id = pid; });
-        return api("canal", {method:"POST", body:canales,
-                             prefer:"return=representation,resolution=merge-duplicates"});
+    /* El orden importa y es éste: primero se funden las filas si hay que
+       fundirlas, después se escribe la persona, y sólo entonces los canales,
+       que necesitan su id. */
+    Promise.resolve()
+      .then(function(){
+        if(!fundir) return null;
+        /* Los canales de la que sobra se mudan ANTES de retirarla. Al revés
+           quedarían colgando de una fila retirada, fuera de toda ficha, y
+           nadie volvería a verlos para arreglarlo. */
+        return api("canal?persona_id=eq." + encodeURIComponent(fundir.id),
+                   {method: "PATCH", body: {persona_id: destino.id},
+                    prefer: "return=minimal"})
+          .then(function(){
+            return api("persona?id=eq." + encodeURIComponent(fundir.id),
+                       {method: "PATCH", body: {retirado: true},
+                        prefer: "return=minimal"});
+          });
+      })
+      .then(function(){
+        var cuerpo = {nit: nit, nombre_clave: clave, nombre: nombre,
+                      cargo: unirCargos(cargos) || null, confirmado: conf,
+                      retirado: false, fuente: "captura en Ariad"};
+        var objetivo = destino || editada;
+
+        /* Sobre una fila que ya existe se corrige POR ID y no por upsert:
+           cambiar el nombre cambia `nombre_clave`, que es la clave del
+           conflicto, y el upsert habría creado una segunda fila en vez de
+           renombrar la que hay. `retirado: false` la revive si estaba
+           retirada, que es lo que quiere decir volver a escribir su nombre. */
+        if(objetivo){
+          return api("persona?id=eq." + encodeURIComponent(objetivo.id),
+                     {method: "PATCH", body: cuerpo})
+            .then(function(filas){
+              return (filas && filas[0] && filas[0].id) || objetivo.id;
+            });
+        }
+
+        /* 🔴 `on_conflict` EXPLÍCITO. Sin él PostgREST resuelve el conflicto
+           por la llave primaria —`id`, un uuid que se genera en cada insert y
+           que nunca choca—, el ON CONFLICT no entra jamás y es
+           `unique (nit, nombre_clave)` el que para el insert con un 23505.
+           Era el fallo: la misma persona dos veces no se fundía, reventaba. */
+        return api("persona?on_conflict=nit,nombre_clave",
+                   {method: "POST", body: [cuerpo],
+                    prefer: "return=representation,resolution=merge-duplicates"})
+          .then(function(filas){
+            var id = filas && filas[0] && filas[0].id;
+            if(!id) throw new Error("Supabase no devolvió la persona");
+            return id;
+          });
+      })
+      .then(function(personaId){
+        var pasos = [];
+        if(nuevos.length){
+          nuevos.forEach(function(c){ c.persona_id = personaId; });
+          /* Mismo `on_conflict` por el mismo motivo. Acá el upsert además
+             MUDA: el `unique` del canal es por NIT y no por persona, así que
+             un teléfono que estaba colgando de la empresa —sin dueño— pasa a
+             colgar de quien se acaba de capturar, que es lo correcto. */
+          pasos.push(api("canal?on_conflict=nit,tipo,valor_norm",
+            {method: "POST", body: nuevos,
+             prefer: "return=minimal,resolution=merge-duplicates"}));
+        }
+        corregir.forEach(function(c){
+          pasos.push(api("canal?id=eq." + encodeURIComponent(c.id),
+                         {method: "PATCH", body: c.cuerpo, prefer: "return=minimal"}));
+        });
+        if(retirar.length){
+          pasos.push(api("canal?id=in.(" +
+                         retirar.map(encodeURIComponent).join(",") + ")",
+                         {method: "PATCH", body: {retirado: true},
+                          prefer: "return=minimal"}));
+        }
+        return Promise.all(pasos);
       })
       .then(function(){
         est.textContent = "Guardado."; est.className = "estado ok";
         return cargarCapturado(nit);
       })
       .then(function(){
-        if(perfilActual === nit) abrirPerfil(nit);   // repinta con el hueco ya cubierto
+        if(perfilActual !== nit) return;
+        pintar();             // la columna de avance de la tabla, al instante
+        pintarQuien(nit);     // y la ficha; el formulario se va con el repintado
       })
       .catch(function(e){
         btn.disabled = false;
-        est.textContent = "No se guardó: " + e.message; est.className = "estado mal";
+        est.textContent = "No se guardó: " + legible(e.message);
+        est.className = "estado mal";
       });
   }
 
-  function pintarCapturado(nit){
-    var host = $("capGente");
-    if(!host) return;
-    var filas = CAPTURADO[nit] || [];
-    if(!filas.length){ host.innerHTML = ""; return; }
-    host.innerHTML = filas.map(function(p){
-      var vias = (p.canal || []).map(function(c){
-        return '<div class="via">' + esc(c.valor) +
-          '<span class="marca2">' + esc(c.tipo) + "</span>" +
-          (c.confirmado ? "" : '<span class="marca2 duda">sin confirmar</span>') + "</div>";
-      }).join("");
-      return '<div class="quien"><div class="cab2"><div style="min-width:0">' +
-        '<span class="nom">' + esc(p.nombre) + "</span>" +
-        (p.cargo ? '<span class="car">' + esc(p.cargo) + " · capturado</span>" : "") +
-        '</div><span class="marca2 si">sin bajar</span></div>' +
-        (vias ? '<div class="vias">' + vias + "</div>" : "") + "</div>";
-    }).join("");
+  /* Quitar a alguien de la ficha. No es un DELETE —desde el navegador nadie
+     borra— sino `retirado`: la fila queda con quién y cuándo la quitó, que es
+     lo que permite contestar de dónde salió un dato si alguien pregunta.
+
+     Los canales se retiran ANTES que la persona. Si fallara la segunda
+     petición, lo que queda es una persona sin canales: raro, pero cierto y
+     visible. Al revés quedarían canales colgando de alguien que ya no sale en
+     ninguna ficha. */
+  function quitarPersona(boton){
+    var form = boton.closest(".cap-form");
+    var pid = form.getAttribute("data-pid"), nit = perfilActual;
+    var est = form.querySelector(".estado");
+    if(!pid || !nit) return;
+    if(!confirm("Se quita de la ficha junto con sus contactos. La fila se queda " +
+                "en la base con quién y cuándo la quitó. ¿Seguir?")) return;
+
+    boton.disabled = true;
+    est.textContent = "Quitando…"; est.className = "estado";
+    api("canal?persona_id=eq." + encodeURIComponent(pid),
+        {method: "PATCH", body: {retirado: true}, prefer: "return=minimal"})
+      .then(function(){
+        return api("persona?id=eq." + encodeURIComponent(pid),
+                   {method: "PATCH", body: {retirado: true},
+                    prefer: "return=minimal"});
+      })
+      .then(function(){ return cargarCapturado(nit); })
+      .then(function(){
+        if(perfilActual !== nit) return;
+        pintar();
+        pintarQuien(nit);
+      })
+      .catch(function(err){
+        boton.disabled = false;
+        est.textContent = "No se quitó: " + legible(err.message);
+        est.className = "estado mal";
+      });
   }
 
   /* Delegación sobre el cuerpo del perfil: se repinta entero con innerHTML en
-     cada apertura, así que enganchar los manejadores a cada campo obligaría a
-     volver a hacerlo cada vez y a acordarse siempre. */
+     cada apertura y en cada guardado, así que enganchar los manejadores a cada
+     campo obligaría a volver a hacerlo cada vez y a acordarse siempre. */
   $("perfilCuerpo").addEventListener("input", function(e){
     var campo = e.target;
     if(!campo.classList.contains("cap-nombre")) return;
     var fila = campo.closest(".hueco");
     if(!fila) return;
-    var hay = fila.nextSibling && fila.nextSibling.classList &&
-              fila.nextSibling.classList.contains("cap-form");
-    if(campo.value.trim() && !hay) abrirHueco(fila);
+    /* Dentro de un formulario abierto la fila ya tiene el suyo: sólo se
+       actualiza el aviso. Abrir otro metería un formulario dentro del
+       formulario. */
+    if(!fila.closest(".cap-form") && campo.value.trim() && !siguienteForm(fila)){
+      abrirForm(fila, null, false);
+    }
+    avisoMisma(fila);
   });
 
   $("perfilCuerpo").addEventListener("click", function(e){
     var b = e.target;
+    if(!b.classList) return;
+
     /* El botón hace visible lo que antes sólo ocurría al teclear. Con el
-       formulario escondido detrás de un `input`, no había nada en pantalla
-       que dijera que ahí se podían meter contactos. */
+       formulario escondido detrás de un `input`, no había nada en pantalla que
+       dijera que ahí se podían meter contactos. */
     if(b.classList.contains("cap-abrir")){
-      var f = b.closest(".hueco");
-      var ya = f.nextSibling && f.nextSibling.classList &&
-               f.nextSibling.classList.contains("cap-form");
-      if(ya){ f.nextSibling.parentNode.removeChild(f.nextSibling); return; }
-      if(abrirHueco(f)) f.querySelector(".cap-nombre").focus();
+      var fh = b.closest(".hueco");
+      if(siguienteForm(fh)){ cerrarFormAbierto(); return; }
+      /* Si en el hueco ya hay un nombre que está en la ficha, el formulario se
+         abre con lo que esa persona ya tiene: se ve que se le está añadiendo
+         un cargo, y no se vuelve a teclear el teléfono que ya está guardado. */
+      if(abrirForm(fh, personaEnFicha(fh.querySelector(".cap-nombre").value), false)){
+        fh.querySelector(".cap-nombre").focus();
+        avisoMisma(fh);
+      }
       return;
     }
+
+    if(b.classList.contains("cap-editar")){
+      var tarjeta = b.closest(".quien");
+      if(siguienteForm(tarjeta)){ cerrarFormAbierto(); return; }
+      var clave = tarjeta.getAttribute("data-clave"), p = null;
+      fundirPersonas(perfilActual).forEach(function(x){
+        if(x.clave === clave) p = x;
+      });
+      if(!p) return;
+      var f = abrirForm(tarjeta, p, true);
+      if(f) f.querySelector(".cap-nombre").focus();
+      return;
+    }
+
+    /* Vaciar y no borrar la fila del formulario: el campo vacío es lo que al
+       guardar retira el canal, y así se puede deshacer volviéndolo a escribir
+       o cancelando. */
+    if(b.classList.contains("cap-vaciar")){
+      var cv = b.parentNode.querySelector("input");
+      if(cv){ cv.value = ""; cv.focus(); }
+      return;
+    }
+
+    if(b.classList.contains("cap-quitar")){ quitarPersona(b); return; }
+
     if(b.classList.contains("cap-revisar")){
       var caja = b.closest(".revisar");
       var nit = caja.getAttribute("data-nit");
@@ -2151,30 +2703,37 @@
       var e2 = caja.querySelector(".estado");
       b.disabled = true;
       e2.textContent = "Guardando…"; e2.className = "estado";
-      api("empresa", {method:"POST", body:[{
-        nit: nit, estado: accion, nota: campo ? (campo.value || "").trim() || null : null
-      }], prefer:"return=representation,resolution=merge-duplicates"})
+      api("empresa", {method: "POST", body: [{
+        nit: nit, estado: accion,
+        nota: campo ? (campo.value || "").trim() || null : null
+      }], prefer: "return=representation,resolution=merge-duplicates"})
         .then(function(){
           if(accion === "revisada") ESTADO[nit] = "revisada"; else delete ESTADO[nit];
           pintar();              // la fila de la tabla cambia de marca al instante
-          if(perfilActual === nit) abrirPerfil(nit);
+          if(perfilActual === nit) pintarQuien(nit);
         })
         .catch(function(err){
           b.disabled = false;
-          e2.textContent = "No se guardó: " + err.message; e2.className = "estado mal";
+          e2.textContent = "No se guardó: " + legible(err.message);
+          e2.className = "estado mal";
         });
       return;
     }
+
     if(b.classList.contains("cap-cancelar")){
-      var f = b.closest(".cap-form");
-      if(f) f.parentNode.removeChild(f);
+      var f2 = b.closest(".cap-form");
+      if(f2) f2.parentNode.removeChild(f2);
       return;
     }
+
     if(b.classList.contains("cap-guardar")){
       var form = b.closest(".cap-form");
-      var fila = form.previousSibling;
-      var host = fila.closest(".huecos");
-      guardarPersona(fila, form, host.getAttribute("data-nit"));
+      /* La fila de nombre y cargo: DENTRO del formulario cuando se está
+         editando a alguien de la lista, y justo encima cuando se llena un
+         hueco. Un solo camino de guardado para las dos entradas. */
+      var fg = form.querySelector(".hueco") || form.previousElementSibling;
+      var host = fg.closest(".huecos");
+      guardarPersona(fg, form, (host && host.getAttribute("data-nit")) || perfilActual);
     }
   });
 
