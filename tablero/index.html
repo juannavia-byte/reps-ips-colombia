@@ -1573,7 +1573,15 @@
         throw new Error("la sesión caducó · recarga la página y vuelve a guardar");
       }
       if(!r.ok) return r.text().then(function(t){ throw new Error(t || ("HTTP " + r.status)); });
-      return r.status === 204 ? null : r.json();
+      /* 🔴 NO SE MIRA EL CÓDIGO PARA SABER SI HAY CUERPO, SE MIRA EL CUERPO.
+         `return=minimal` responde 204 en un PATCH pero 201 en un POST, y en
+         los dos casos el cuerpo viene vacío. Comprobar sólo el 204 —que es lo
+         que hacía— dejaba que `r.json()` reventara contra el cuerpo vacío de
+         un 201 con «Unexpected end of JSON input»: un error que no dice nada
+         de lo que pasó y que además MIENTE, porque para cuando salta la
+         escritura ya entró y lo que falló es leer la respuesta que no había.
+         El guardado se veía como «No se guardó» con el dato guardado. */
+      return r.text().then(function(t){ return t ? JSON.parse(t) : null; });
     });
   }
 
