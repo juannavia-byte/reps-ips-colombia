@@ -1454,11 +1454,18 @@
      se queda en sólo lectura y lo dice, que es lo que pasa al abrir el archivo
      suelto o servirlo sin login.
 
-     Las reglas de normalización son LAS MISMAS que `src/importar_hoja.py`, a
-     propósito y con el riesgo asumido de tenerlas en dos lenguajes: acá sirven
-     para avisar y deduplicar mientras se escribe, y allá para decidir qué se
-     guarda. `traer_captura.py` recalcula todo desde cero al bajarlo, así que
-     si las dos divergen gana la de Python y no se corrompe nada.
+     Las reglas de normalización de UN valor son LAS MISMAS que
+     `src/importar_hoja.py`, a propósito y con el riesgo asumido de tenerlas en
+     dos lenguajes: acá sirven para avisar y deduplicar mientras se escribe, y
+     allá para decidir qué se guarda. `traer_captura.py` recalcula todo desde
+     cero al bajarlo, así que si las dos divergen gana la de Python y no se
+     corrompe nada.
+
+     DONDE SÍ DIVERGEN, y hay que saberlo: acá un campo acepta VARIOS valores
+     separados por coma —dos correos posibles de la misma persona— y se
+     reparten en un canal cada uno (`canonicos`). La hoja sigue siendo un
+     valor por celda: dos en una celda caen en «ilegibles» y no entran.
+     Pendiente alinearlo, que necesita probarse contra el Postgres local.
      ──────────────────────────────────────────────────────────────────────── */
   var API = window.ARIAD_API || null;
 
@@ -1543,6 +1550,43 @@
     h = h.replace(/^[\/@\s]+|[\/@\s]+$/g, "").toLowerCase();
     if(!h) return null;
     return [SITIOS[tipo].replace("%s", h), h];
+  }
+
+  /* ── Varios valores en un campo ───────────────────────────────────────────
+     Pasa a diario: se encuentran DOS correos posibles de la misma persona y no
+     se sabe cuál es el bueno. Los dos valen —entran los dos y se desmarca «lo
+     vi o me lo dijeron», que es exactamente para eso— pero el campo era uno y
+     guardar respondía «No se entiende: correo», sin decir siquiera qué parte
+     no entendía.
+
+     Se parte por COMA, PUNTO Y COMA y SALTO DE LÍNEA. Por espacio NO: un
+     teléfono colombiano se teclea «310 555 4477» y partirlo por el espacio lo
+     volvería tres números de tres dígitos que no son nada. Por «/» tampoco:
+     vive dentro de toda URL de perfil.
+
+     Devuelve los buenos ya canónicos y los trozos que no se entendieron, para
+     poder decir cuál falló en vez de nombrar el campo entero.
+     ──────────────────────────────────────────────────────────────────────── */
+  function canonicos(tipo, texto){
+    var vistos = {}, buenos = [], malos = [];
+    String(texto == null ? "" : texto).split(/[,;\n]+/).forEach(function(trozo){
+      trozo = trozo.trim();
+      if(!trozo) return;
+      var r = canonico(tipo, trozo);
+      if(!r){ malos.push(trozo); return; }
+      // El mismo valor dos veces en el mismo campo es un descuido al pegar.
+      if(vistos[r[1]]) return;
+      vistos[r[1]] = true;
+      buenos.push(r);
+    });
+    return {buenos: buenos, malos: malos};
+  }
+
+  /* El ámbito de un canal. El del correo se deduce de la dirección —es lo que
+     distingue un buzón de área de uno nominal— y el del resto lo dice la fila
+     donde se escribió. */
+  function ambitoDe(tipo, valor, heredado){
+    return tipo === "correo" ? ambitoCorreo(valor) : (heredado || "profesional");
   }
 
   /* Lo capturado en esta sesión, por NIT. Se guarda en memoria para repintar
@@ -1991,6 +2035,9 @@
       return "falta aplicar supabase/captura_edicion.sql en Supabase " +
              "(columna «retirado»).";
     }
+    if(/affect row a second time|21000/.test(m)){
+      return "el mismo dato va dos veces en este formulario. Déjalo una sola.";
+    }
     return m;
   }
 
@@ -2301,6 +2348,7 @@
       h += '<div class="canales">' + guardadas.map(function(v){
         return '<div class="canal"><span class="et2">' + esc(etiquetaCampo(v)) + "</span>" +
           '<input type="text" data-cid="' + esc(v.cid) + '" data-tipo="' + esc(v.tipo) +
+          '" data-ambito="' + esc(v.ambito || "") +
           '" data-norm="' + esc(v.norm || "") + '" value="' + esc(v.valor) +
           '" data-inicial="' + esc(v.valor) + '">' +
           '<button type="button" class="btn ghost cap-vaciar" title="quitar este canal">×</button>' +
@@ -2335,8 +2383,12 @@
         '<button type="button" class="btn ghost cap-cancelar">Cancelar</button>' +
         '<button type="button" class="btn primary cap-guardar">Guardar</button>' +
       "</div>" +
-      '<p class="nota">Sin marcar, el dato entra como <b>sin confirmar</b>: es para lo que ' +
-      "se deduce —un correo por patrón, un homónimo— y se distingue en la ficha.</p>";
+      '<p class="nota">En un campo caben <b>varios separados por coma</b>: dos ' +
+      "correos posibles de la misma persona entran como dos canales suyos. " +
+      "Un teléfono con espacios —«310 555 4477»— no se parte.<br>" +
+      "Sin marcar la casilla, el dato entra como <b>sin confirmar</b>: es para lo que " +
+      "se deduce —un correo por patrón, un homónimo, dos candidatos de los que " +
+      "todavía no se sabe cuál es— y se distingue en la ficha.</p>";
   }
 
   /* La fila de nombre y cargo, para cuando el formulario no cuelga de un hueco
@@ -2479,11 +2531,13 @@
       var campo = form.querySelector('[data-canal="' + c.k + '"]');
       var v = campo ? (campo.value || "").trim() : "";
       if(!v) return;
-      var r = canonico(c.tipo, v);
-      if(!r){ malos.push(c.et); return; }
-      nuevos.push({nit: nit, tipo: c.tipo, valor: r[0], valor_norm: r[1],
-                   ambito: c.ambito || ambitoCorreo(r[0]), confirmado: conf,
-                   retirado: false});
+      var r = canonicos(c.tipo, v);
+      r.malos.forEach(function(x){ malos.push(c.et + " «" + x + "»"); });
+      r.buenos.forEach(function(b){
+        nuevos.push({nit: nit, tipo: c.tipo, valor: b[0], valor_norm: b[1],
+                     ambito: ambitoDe(c.tipo, b[0], c.ambito), confirmado: conf,
+                     retirado: false});
+      });
     });
 
     /* Y los ya guardados, uno por uno. Vaciar el campo es quitarlo: no hay
@@ -2496,12 +2550,37 @@
         var tipo = campo.getAttribute("data-tipo");
         var v = (campo.value || "").trim();
         if(!v){ retirar.push(cid); return; }
-        var r = canonico(tipo, v);
-        if(!r){ malos.push(etiquetaCampo({tipo: tipo, valor: v})); return; }
-        if(r[1] === campo.getAttribute("data-norm")) return;   // sin cambios
-        corregir.push({id: cid,
-                       cuerpo: {valor: r[0], valor_norm: r[1], confirmado: conf}});
+        var r = canonicos(tipo, v);
+        var et = etiquetaCampo({tipo: tipo, valor: v, ambito: campo.getAttribute("data-ambito")});
+        r.malos.forEach(function(x){ malos.push(et + " «" + x + "»"); });
+        if(!r.buenos.length) return;
+        /* El primero CORRIGE la fila que había; si se teclearon varios, los
+           demás entran como canales nuevos de esta misma persona. Así se puede
+           añadir el segundo correo posible sin salir de la fila del primero. */
+        if(r.buenos[0][1] !== campo.getAttribute("data-norm")){
+          corregir.push({id: cid, cuerpo: {valor: r.buenos[0][0],
+                                           valor_norm: r.buenos[0][1],
+                                           confirmado: conf}});
+        }
+        r.buenos.slice(1).forEach(function(b){
+          nuevos.push({nit: nit, tipo: tipo, valor: b[0], valor_norm: b[1],
+                       ambito: ambitoDe(tipo, b[0], campo.getAttribute("data-ambito")),
+                       confirmado: conf, retirado: false});
+        });
       });
+
+    /* El mismo valor escrito dos veces en el formulario —en el campo de lo ya
+       guardado y otra vez en el de añadir— llegaría dos veces en el mismo
+       POST, y un ON CONFLICT que toca la misma fila dos veces en una sentencia
+       es un error de Postgres, «cannot affect row a second time», que no dice
+       nada de lo que pasó. */
+    var yaVa = {};
+    nuevos = nuevos.filter(function(c){
+      var k = c.tipo + "|" + c.valor_norm;
+      if(yaVa[k]) return false;
+      yaVa[k] = true;
+      return true;
+    });
 
     if(malos.length){
       est.textContent = "No se entiende: " + malos.join(", ");
