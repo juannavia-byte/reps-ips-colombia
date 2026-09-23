@@ -1611,7 +1611,14 @@
      ──────────────────────────────────────────────────────────────────────── */
   function refrescarToken(){
     if(!API || !API.refrescar) return Promise.resolve(false);
-    return fetch(API.refrescar, {credentials: "same-origin", cache: "no-store"})
+    /* `redirect: "manual"`: el proxy del sitio protege todo /portal y, sin
+       cookie de sesión, responde un 307 a /login. Siguiéndolo se bajaría la
+       página de login entera para que `json()` reviente contra su HTML —
+       funcionaba, pero por rechazo y descargando un documento para nada. Sin
+       seguirlo, el redirect llega como respuesta no-ok y se lee por lo que es:
+       no hay sesión que refrescar, y eso lo dirá quien llamó. */
+    return fetch(API.refrescar, {credentials: "same-origin", cache: "no-store",
+                                 redirect: "manual"})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if(!d || !d.token || d.token === API.token) return false;
