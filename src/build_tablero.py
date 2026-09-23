@@ -147,7 +147,13 @@ SELECT p.numero_identificacion,
                          ca.tipo, ca.valor, ca.ambito, ca.estado, ca.confianza)
                        ORDER BY ca.confianza DESC)
                 FROM enriquecimiento.canal ca
-                WHERE ca.persona_id = pe.id), '[]'::jsonb),
+                WHERE ca.persona_id = pe.id
+                  -- Los obsoletos no salen, igual que no salen las personas
+                  -- obsoletas. Es por donde entra lo que alguien retiró desde
+                  -- el tablero: `traer_captura.py` lo marca así, y sin este
+                  -- filtro el teléfono quitado volvía a la ficha en la
+                  -- siguiente corrida del pipeline.
+                  AND ca.estado <> 'obsoleto'), '[]'::jsonb),
       -- Va AL FINAL y no junto al cargo, aunque ahí encajaría mejor de leer:
       -- el índice 5 es el array de vías y el tablero lo busca por posición.
       -- Meterla en medio desplazaría las vías un puesto y el perfil dejaría

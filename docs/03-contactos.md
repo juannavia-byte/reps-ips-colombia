@@ -99,6 +99,36 @@ empresa, se abre su ficha y arriba de «Quién decide» aparecen los cargos que
 todavía no tiene cubiertos, con su tier. Se escribe el nombre en el que
 corresponda, se despliegan los diez campos de contacto, se guarda.
 
+**«Quién decide» es UNA lista.** Lo que encontró el motor y lo que capturó el
+equipo se funden por clave de nombre —tokens sin tildes y ordenados, la misma
+regla de la base— así que nadie sale dos veces aunque esté en los dos sitios.
+
+### Una persona con dos cargos es una fila, no dos
+
+En una IPS de municipio el representante legal y el gerente general son la
+misma silla. Al escribir en un segundo hueco un nombre que ya está en la ficha,
+el formulario lo dice —«es X, que ya está en la ficha como Y»— y al guardar le
+**añade** el cargo en vez de crear otra persona: los cargos conviven en el
+mismo campo separados por `·`, y `clasificar` los clasifica por el más alto.
+
+### Corregir y quitar
+
+Cada persona de la lista lleva **Editar** (o **Añadir contacto**, si la trajo el
+motor y todavía no tiene fila de captura). Ahí se corrige el nombre, los cargos
+y cada canal ya guardado; vaciar un canal con `×` lo **retira**.
+
+Retirar no es borrar: la fila se queda con quién y cuándo lo quitó. Desde el
+navegador nadie tiene `DELETE`, y es a propósito — un borrado de verdad es el
+que pide alguien invocando habeas data, y pasa por la lista de exclusión, que
+es donde queda constancia de la solicitud. Lo retirado que ya se había bajado
+lo marca `obsoleto` en Ariad la siguiente corrida de `traer_captura.py`.
+
+**Dos grafías del mismo ser humano** —«Yuly Martínez» y «Yuly Andrea
+Martínez»— son dos personas para la clave, y tienen que serlo: desde la ficha
+no hay forma de distinguir un segundo nombre de más de una hermana con el mismo
+apellido. Se juntan editando una y poniéndole el nombre de la otra: al guardar
+se funden, los canales se mudan y la que sobra queda retirada.
+
 Lo capturado queda en `captura.persona` y `captura.canal` de Supabase, marcado
 «sin bajar», y de ahí vuelve a la base local:
 
@@ -121,10 +151,16 @@ sabe reconocer, y con «otro cargo» se añade cualquiera que no esté.
 
 ```bash
 psql "$SUPABASE_DSN" -v ON_ERROR_STOP=1 -f supabase/captura.sql
+psql "$SUPABASE_DSN" -v ON_ERROR_STOP=1 -f supabase/captura_avance.sql
+psql "$SUPABASE_DSN" -v ON_ERROR_STOP=1 -f supabase/captura_edicion.sql
 ```
 
 Y en Supabase: **Settings → API → Exposed schemas**, añadir `captura`. Sin eso
 PostgREST responde `PGRST106` y el formulario no guarda.
+
+`captura_edicion.sql` es el que añade `retirado`. Sin aplicarlo, guardar
+responde `PGRST204` y el formulario lo dice con esas palabras en vez de
+escupir el error de PostgREST.
 
 En `proactivos-website`, tras cualquier cambio del tablero:
 

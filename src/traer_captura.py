@@ -44,7 +44,8 @@ import psycopg
 # `co.linkedin.com`— y tenerlas dos veces garantiza que un día diverjan y que
 # el mismo Facebook entre distinto según por dónde se capturó.
 from importar_hoja import canonico
-from enriquecer import ambito_correo, clasificar, clave_nombre, parece_persona
+from enriquecer import (ambito_correo, clasificar, clave_nombre, parece_persona,
+                        unir_cargos)
 
 # Ámbito por tipo, cuando el capturador no dijo otra cosa. El correo no está:
 # lo deduce `ambito_correo` mirando el buzón.
@@ -74,7 +75,11 @@ def main() -> int:
     ap.add_argument("--simular", action="store_true")
     args = ap.parse_args()
 
-    filtro = "" if args.todo else "where bajado_en is null"
+    # `retirado is false` en las dos consultas: lo que alguien quitó desde el
+    # navegador no se baja. Lo que ya se había bajado ANTES de retirarlo se
+    # resuelve aparte, marcándolo obsoleto en Ariad — ver más abajo.
+    filtro = ("where retirado is false" if args.todo
+              else "where bajado_en is null and retirado is false")
     sb = psycopg.connect(args.supabase)
     with sb.cursor() as cur:
         cur.execute(f"""
@@ -87,10 +92,24 @@ def main() -> int:
               FROM captura.canal {filtro} ORDER BY creado
         """)
         canales = cur.fetchall()
+        # Lo retirado DESPUÉS de haberse bajado. Ariad ya lo tiene, así que
+        # saltárselo no basta: hay que ir a decirle que ya no vale.
+        cur.execute("""
+            SELECT nit, nombre_clave, nombre FROM captura.persona
+             WHERE retirado is true AND bajado_en is not null
+        """)
+        retiradas_p = cur.fetchall()
+        cur.execute("""
+            SELECT nit, tipo, valor FROM captura.canal
+             WHERE retirado is true AND bajado_en is not null
+        """)
+        retirados_c = cur.fetchall()
 
     print(f"── Supabase: {len(personas)} personas · {len(canales)} canales"
-          f"{'' if args.todo else ' sin bajar'}")
-    if not personas and not canales:
+          f"{'' if args.todo else ' sin bajar'}"
+          + (f" · {len(retiradas_p) + len(retirados_c)} retirados ya bajados"
+             if retiradas_p or retirados_c else ""))
+    if not personas and not canales and not retiradas_p and not retirados_c:
         sb.close()
         return 0
 
@@ -109,7 +128,7 @@ def main() -> int:
             if v:
                 ex_val.add(v)
 
-    nuevas = nuevos = 0
+    nuevas = nuevos = obsoletas = obsoletos = 0
     ids_persona: dict[str, int] = {}     # uuid de Supabase → id local
     sin_cruce, excluidos, ilegibles, no_persona = set(), 0, [], []
     bajadas_p, bajados_c = [], []
@@ -135,11 +154,27 @@ def main() -> int:
                 continue
 
             estado, c = confianza(conf)
+
+            # 🔴 EL CARGO NO REEMPLAZA AL QUE YA HAY: SE UNE.
+            #
+            # La misma persona es representante legal Y gerente general en
+            # media Colombia, y el formulario del tablero ya lo guarda así
+            # («A · B»). Si acá se reemplazara —que es lo que hacía
+            # `cargo = coalesce(nullif(excluded.cargo,''), …)` con un cargo
+            # suelto— bajar la captura borraría el que encontró el motor, y la
+            # ficha perdería la mitad de lo que sabe de esa persona sin que
+            # nada lo dijera.
+            #
+            # `clasificar` recorre los patrones en orden de tier y devuelve el
+            # primero que casa, así que la unión se clasifica por el cargo más
+            # alto: «Gerente general · Jefe de calidad» es tier 1, no tier 3.
+            cur.execute("""SELECT id, cargo FROM enriquecimiento.persona
+                           WHERE prestador_id=%s AND nombre_clave=%s""", (pid, k))
+            hay = cur.fetchone()
+            cargo = unir_cargos(hay[1] if hay else None, cargo)
             tier, cat = clasificar(cargo or "")
+
             if args.simular:
-                cur.execute("""SELECT id FROM enriquecimiento.persona
-                               WHERE prestador_id=%s AND nombre_clave=%s""", (pid, k))
-                hay = cur.fetchone()
                 nuevas += 0 if hay else 1
                 if hay:
                     ids_persona[str(uid)] = hay[0]
@@ -232,6 +267,59 @@ def main() -> int:
                  json.dumps({tipo: valor, "captura_id": str(cid)}, ensure_ascii=False)))
             bajados_c.append(cid)
 
+        # ── Lo retirado que YA estaba bajado ────────────────────────────────
+        #
+        # Saltárselo no basta: Ariad ya lo tiene, y seguiría saliendo en la
+        # ficha y en las exportaciones como si nadie lo hubiera quitado. Se
+        # marca `obsoleto`, que es el estado que las dos tablas ya tenían para
+        # esto y que `build_tablero.py` filtra al construir el payload.
+        #
+        # No se borra, por lo mismo que no se borra en Supabase: un DELETE
+        # dejaría la evidencia apuntando a una fila inexistente y perdería el
+        # rastro de que el dato existió y alguien lo quitó. Un borrado de
+        # verdad —el que pide alguien invocando habeas data— pasa por la lista
+        # de exclusión, que es donde queda constancia de la solicitud.
+        for r_nit, r_clave, r_nombre in retiradas_p:
+            r_pid = por_nit.get((r_nit or "").strip())
+            if r_pid is None:
+                continue
+            k = clave_nombre(r_nombre) or (r_clave or "").strip()
+            if not k:
+                continue
+            # El simulacro cuenta lo que CAMBIARÍA, no los candidatos: lo que
+            # ya está obsoleto de una corrida anterior no vuelve a contarse, o
+            # el simulacro diría siempre más de lo que la corrida real hace.
+            if args.simular:
+                cur.execute("""SELECT 1 FROM enriquecimiento.persona
+                                WHERE prestador_id=%s AND nombre_clave=%s
+                                  AND estado <> 'obsoleto'""", (r_pid, k))
+                obsoletas += 1 if cur.fetchone() else 0
+                continue
+            cur.execute("""UPDATE enriquecimiento.persona
+                              SET estado='obsoleto', ultima_verificacion=now()
+                            WHERE prestador_id=%s AND nombre_clave=%s
+                              AND estado <> 'obsoleto'""", (r_pid, k))
+            obsoletas += cur.rowcount
+
+        for r_nit, r_tipo, r_valor in retirados_c:
+            r_pid = por_nit.get((r_nit or "").strip())
+            if r_pid is None:
+                continue
+            _, r_vn = canonico(r_tipo, r_valor)
+            if not r_vn:
+                continue
+            if args.simular:
+                cur.execute("""SELECT 1 FROM enriquecimiento.canal
+                                WHERE prestador_id=%s AND tipo=%s AND valor_norm=%s
+                                  AND estado <> 'obsoleto'""", (r_pid, r_tipo, r_vn))
+                obsoletos += 1 if cur.fetchone() else 0
+                continue
+            cur.execute("""UPDATE enriquecimiento.canal
+                              SET estado='obsoleto', ultima_verificacion=now()
+                            WHERE prestador_id=%s AND tipo=%s AND valor_norm=%s
+                              AND estado <> 'obsoleto'""", (r_pid, r_tipo, r_vn))
+            obsoletos += cur.rowcount
+
     if not args.simular:
         cx.commit()
         # Sólo después de que el commit local haya ido bien. Marcarlo antes
@@ -261,6 +349,8 @@ def main() -> int:
     print(f"\n── {marca}resultado")
     print(f"   personas nuevas en Ariad   {nuevas}")
     print(f"   canales nuevos en Ariad    {nuevos}")
+    if obsoletas or obsoletos:
+        print(f"   retirados → obsoletos      {obsoletas} personas · {obsoletos} canales")
     if excluidos:
         print(f"   saltados por exclusión     {excluidos}")
     if no_persona:
