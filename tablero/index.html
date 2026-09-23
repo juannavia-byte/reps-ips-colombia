@@ -1594,7 +1594,46 @@
      pipeline y no sabe nada de lo que se acaba de escribir. */
   var CAPTURADO = {};
 
-  function api(ruta, opciones){
+  /* ── La sesión no se muere en la cara de quien está escribiendo ───────────
+     El token que inyecta /portal/ariad dura UNA HORA y la herramienta se tiene
+     abierta toda la mañana. Lo que hacía al caducar era responder «la sesión
+     caducó · recarga la página y vuelve a guardar» a CADA guardado — y
+     recargar tira el formulario con los diez campos recién teclados dentro.
+     El trabajo se perdía por un token, no por un error.
+
+     Ahora un 401 pide uno nuevo a /portal/ariad/token y reintenta. La cookie
+     de sesión es httpOnly y el proxy la refresca en cada petición, así que el
+     JavaScript de la página nunca ve el refresh token: se cambia la hora de
+     vida por una petición, no por bajar la seguridad.
+
+     Reintenta UNA vez y sólo si el token volvió distinto. Si la sesión murió
+     de verdad, el segundo 401 sí es el final y ahí se dice.
+     ──────────────────────────────────────────────────────────────────────── */
+  function refrescarToken(){
+    if(!API || !API.refrescar) return Promise.resolve(false);
+    return fetch(API.refrescar, {credentials: "same-origin", cache: "no-store"})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.token || d.token === API.token) return false;
+        API.token = d.token;
+        return true;
+      })["catch"](function(){ return false; });
+  }
+
+  /* El token es un JWT y lleva su caducidad dentro. Mirarla convierte «la
+     sesión caducó» en un dato comprobable en vez de una conjetura: si al
+     token le queda vida, el 401 NO es la sesión, y mandar a recargar es
+     mandar a perder lo escrito para nada. */
+  function minutosCaducado(){
+    try{
+      var trozo = API.token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      var p = JSON.parse(atob(trozo));
+      if(!p.exp) return null;
+      return Math.round((Date.now() / 1000 - p.exp) / 60);
+    }catch(e){ return null; }
+  }
+
+  function api(ruta, opciones, reintento){
     if(!API) return Promise.reject(new Error("sin conexión"));
     var o = opciones || {};
     return fetch(API.url + "/rest/v1/" + ruta, {
@@ -1609,13 +1648,31 @@
       },
       body: o.body ? JSON.stringify(o.body) : undefined
     }).then(function(r){
-      /* La sesión dura una hora y la herramienta se tiene abierta mucho más.
-         Un 401 no es un fallo que haya que depurar: es que caducó, y lo que
-         hay que hacer es recargar. Decirlo así evita que alguien pierda lo
-         tecleado intentando entender un mensaje de PostgREST. */
-      if(r.status === 401 || r.status === 403){
-        throw new Error("la sesión caducó · recarga la página y vuelve a guardar");
+      /* Un 401 es el token. Reintentar la petición entera es seguro: la
+         autenticación va ANTES de la sentencia, así que un 401 no escribió
+         nada y no hay nada que duplicar. */
+      if(r.status === 401 && !reintento){
+        return refrescarToken().then(function(ok){
+          if(ok) return api(ruta, opciones, true);
+          var min = minutosCaducado();
+          throw new Error(min != null && min <= 0
+            ? "la base rechazó el token aunque le quedan " + (-min) + " min de " +
+              "vida · no es la sesión, y recargar no lo va a arreglar"
+            : "la sesión se cerró" + (min ? " hace " + min + " min" : "") +
+              " · entra otra vez por /portal y vuelve a abrir la ficha; " +
+              "copia lo que llevabas escrito antes de recargar");
+        });
       }
+      if(r.status === 401){
+        throw new Error("la sesión se cerró · entra otra vez por /portal; " +
+                        "copia lo que llevabas escrito antes de recargar");
+      }
+      /* 🔴 UN 403 NO ES LA SESIÓN. Iba junto con el 401 y respondía «la sesión
+         caducó», que para un 403 es falso y además desorienta: un 403 de
+         PostgREST es una política de RLS o un permiso que falta, su cuerpo
+         dice CUÁL, y recargar no lo arregla nunca — de ahí que el mensaje
+         saliera una y otra vez sin que recargar sirviera de nada. El cuerpo
+         se pasa a `legible`, que traduce los dos casos que de verdad salen. */
       if(!r.ok) return r.text().then(function(t){ throw new Error(t || ("HTTP " + r.status)); });
       /* 🔴 NO SE MIRA EL CÓDIGO PARA SABER SI HAY CUERPO, SE MIRA EL CUERPO.
          `return=minimal` responde 204 en un PATCH pero 201 en un POST, y en
@@ -1643,7 +1700,12 @@
      hacer eso, así que se pagina hasta que una página venga corta. */
   function traerTodo(ruta){
     var acc = [], paso = 1000;
-    function pagina(desde){
+
+    /* Una página, con el mismo reintento que `api`: una paginación de diez
+       páginas puede cruzar la hora de vida del token por el medio. Devuelve
+       SÓLO las filas de esta página; acumular es de `pagina`, y tener las dos
+       cosas en una función es lo que hacía falso el reintento. */
+    function traer(desde, reintento){
       return fetch(API.url + "/rest/v1/" + ruta, {
         headers: {
           "apikey": API.anon, "Authorization": "Bearer " + API.token,
@@ -1651,10 +1713,22 @@
           "Range-Unit": "items", "Range": desde + "-" + (desde + paso - 1)
         }
       }).then(function(r){
-        if(r.status === 401 || r.status === 403) throw new Error("sesión caducada");
-        if(!r.ok) throw new Error("HTTP " + r.status);
+        if(r.status === 401 && !reintento){
+          return refrescarToken().then(function(ok){
+            if(!ok) throw new Error("la sesión se cerró · entra otra vez por /portal");
+            return traer(desde, true);
+          });
+        }
+        if(r.status === 401) throw new Error("la sesión se cerró · entra otra vez por /portal");
+        if(!r.ok) return r.text().then(function(t){
+          throw new Error(legible(t || ("HTTP " + r.status)));
+        });
         return r.json();
-      }).then(function(filas){
+      });
+    }
+
+    function pagina(desde){
+      return traer(desde, false).then(function(filas){
         acc = acc.concat(filas || []);
         if(!filas || filas.length < paso) return acc;
         return pagina(desde + paso);
@@ -2037,6 +2111,24 @@
     }
     if(/affect row a second time|21000/.test(m)){
       return "el mismo dato va dos veces en este formulario. Déjalo una sola.";
+    }
+    /* Los dos 403 posibles. Antes los dos salían como «la sesión caducó», que
+       mandaba a recargar una y otra vez sin arreglar nada: ninguno se arregla
+       desde el navegador, los dos se arreglan aplicando un .sql. */
+    if(/row-level security|42501/.test(m)){
+      return "la base rechazó la escritura por su política de acceso (RLS). " +
+             "La sesión está bien; lo que falta es permiso: comprueba que " +
+             "supabase/captura.sql y supabase/captura_edicion.sql estén " +
+             "aplicados en este proyecto de Supabase.";
+    }
+    if(/permission denied for/.test(m)){
+      var q = m.match(/permission denied for \w+ ([\w.]+)/);
+      return "falta el permiso de «authenticated» sobre " +
+             (q ? "«" + q[1] + "»" : "el esquema captura") +
+             " · los grant están en supabase/captura.sql.";
+    }
+    if(/PGRST106/.test(m)){
+      return "el esquema «captura» no está en Settings > API > Exposed schemas.";
     }
     return m;
   }
