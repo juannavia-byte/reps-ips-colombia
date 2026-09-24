@@ -22,3 +22,15 @@ dist/captura.csv
 dist/investigar.csv
 dist/llamadas.csv
 dist/llamadas-guion.txt
+
+# El gold set: 28 personas reales con nombre, correo, telefono y sus perfiles.
+# Mismo motivo que las hojas de captura, y mas fuerte: es la referencia contra
+# la que se mide el pipeline, asi que se consulta mucho y se olvidaria facil
+# que lleva datos personales dentro. La copia de trabajo vive aqui y no sale.
+dist/gold-set*.csv
+# Cinturon. Las llaves viven FUERA del arbol de trabajo, en
+# ~/.config/proactivos/reps.env, porque este repositorio es publico: una llave
+# ignorada se publica igual el dia que alguien haga `git add -f`.
+.env
+.env.*
+*.env

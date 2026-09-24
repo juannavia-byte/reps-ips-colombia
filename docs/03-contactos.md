@@ -154,8 +154,32 @@ así que lo que se exporta es exactamente lo que se ve. Columnas propias:
   escribió.
 - **`sin_bajar`**: `si` cuando esa persona sigue solo en Supabase y
   `traer_captura.py` todavía no la ha bajado a la base buena.
+- **`correo_metodo`**: de dónde salió **ese** correo, no la persona.
+  `capturado` (alguien lo vio y lo escribió), `motor` (fuente real cruzada por
+  el pipeline) o `inferido` (patrón del dominio, confianza 40 o menos, sin
+  comprobar que el buzón exista).
 - **`otros_canales`**: el segundo correo, la cuenta de X, el Facebook y todo lo
-  que no cabe en las columnas fijas, como `x:https://x.com/…`. No se pierde nada.
+  que no cabe en las columnas fijas, **cada uno con su método entre
+  paréntesis**: `correo:jgomez@x.com(inferido) | x:https://x.com/…(capturado)`.
+  No se pierde nada y no se confunde nada.
+
+> 🔴 **El origen va por CANAL, no por persona, y las columnas fijas se llevan
+> la mejor evidencia.** Dos defectos que salieron al usar el export como
+> referencia para medir el pipeline:
+>
+> 1. `origen` es de la persona. Una marcada `motor+captura` podía llevar un
+>    LinkedIn encontrado a mano junto a tres correos inventados por patrón, y
+>    el archivo los daba por iguales. **De 95 correos de una muestra de veinte
+>    cuentas, 75 eran conjeturas del propio motor.** Medir contra eso habría
+>    sido darle la razón al pipeline con sus propias suposiciones.
+> 2. La columna `correo` se llevaba la PRIMERA vía, y `fundirPersonas` deja
+>    las del motor delante porque así se pintan en la ficha. Resultado: la
+>    columna traía `jorge.gomez@…` inventado y el correo real,
+>    `jorgegomezmd@hotmail.com`, quedaba escondido entre los sobrantes. Quien
+>    importara eso a HubSpot se llevaba el inventado.
+>
+> Ahora se ordena por evidencia antes de escoger: capturado, luego fuente real
+> del motor, y de último lo inferido.
 - **`tier`**: si el motor no lo trae (porque la persona se capturó a mano), se
   deduce del cargo contra la misma lista de cargos sugeridos que usa la ficha.
   Sin esto, alguien capturado como «Director general» salía sin prioridad, que
