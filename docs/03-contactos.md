@@ -129,6 +129,35 @@ no hay forma de distinguir un segundo nombre de más de una hermana con el mismo
 apellido. Se juntan editando una y poniéndole el nombre de la otra: al guardar
 se funden, los canales se mudan y la que sobra queda retirada.
 
+### El export del tablero saca DOS archivos
+
+Los botones «Exportar filtrado» y «Exportar selección» bajan:
+
+| Archivo | Grano | Qué lleva |
+|---|---|---|
+| `prestadores_*.csv` | una fila por **empresa** | las 37 columnas de siempre, sin cambios |
+| `contactos_*.csv` | una fila por **persona** | la lista fundida de la ficha: lo del motor y lo capturado |
+
+El de personas sale de `fundirPersonas`, la misma función que pinta la ficha,
+así que lo que se exporta es exactamente lo que se ve. Columnas propias:
+
+- **`origen`**: `motor`, `captura` o `motor+captura`. Es la que hace honesto el
+  archivo, porque distingue lo que cruzó el motor de lo que alguien vio y
+  escribió.
+- **`sin_bajar`**: `si` cuando esa persona sigue solo en Supabase y
+  `traer_captura.py` todavía no la ha bajado a la base buena.
+- **`otros_canales`**: el segundo correo, el segundo teléfono y todo lo que no
+  cabe en las columnas fijas. No se pierde nada.
+
+> 🔴 **Antes el export se llevaba la mitad.** Bajaba solo el archivo de
+> prestadores: ni las personas del motor ni, peor, las que el equipo acababa de
+> capturar a mano. Y nadie se enteraba, porque el archivo bajaba bien;
+> simplemente venía sin la gente. Se descubrió al intentar sacar veinte cuentas
+> ya trabajadas y ver que el CSV no traía ni un nombre.
+>
+> Si la lectura de lo capturado falla (sesión cerrada, por ejemplo), el botón
+> dice **«sin lo capturado»** en vez de bajar un archivo corto en silencio.
+
 Lo capturado queda en `captura.persona` y `captura.canal` de Supabase, marcado
 «sin bajar», y de ahí vuelve a la base local:
 
