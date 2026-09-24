@@ -3133,8 +3133,30 @@
      ──────────────────────────────────────────────────────────────────────── */
   var COLS_PERSONA = ["nit", "razon_social", "municipio", "departamento",
     "score_icp", "prioridad_icp", "nombre", "cargo", "tier", "origen",
-    "estado_dato", "sin_bajar", "correo", "telefono", "whatsapp", "linkedin",
-    "otros_canales"];
+    "estado_dato", "sin_bajar", "correo", "correo_metodo", "telefono",
+    "whatsapp", "linkedin", "otros_canales"];
+
+  /* 🔴 EL ORIGEN VA POR CANAL, NO POR PERSONA.
+     La columna `origen` dice de dónde viene la PERSONA, y con eso no basta:
+     una persona marcada `motor+captura` puede llevar un LinkedIn que alguien
+     encontró a mano junto a tres correos que el motor se inventó por patrón.
+     El archivo los daba todos por iguales.
+
+     Costó caro y de la peor manera: al usar el export como referencia para
+     medir el pipeline, 75 de 95 correos resultaron ser conjeturas del propio
+     motor. Medir contra eso habría sido darle la razón al pipeline con sus
+     propias suposiciones y llamarlo validación.
+
+     `capturado` lleva id de captura: alguien lo vio y lo escribió.
+     `inferido` es patrón del motor, confianza 40 o menos. No se ha comprobado
+        que el buzón exista, y con la regla de la casa nunca se marca como
+        encontrado.
+     `motor` es de una fuente real cruzada por el pipeline (REPS, RUES, SECOP). */
+  function metodoDe(v){
+    if(v.cid) return "capturado";
+    if(v.estado === "inferido" && (v.conf == null || v.conf <= 40)) return "inferido";
+    return "motor";
+  }
 
   function csvPersonas(filas){
     var cuerpo = [];
@@ -3145,12 +3167,31 @@
            capturada por delante de la del motor. El resto no se tira: va a
            `otros_canales`, porque un segundo correo posible es justo el dato
            que el equipo se tomó el trabajo de encontrar. */
-        var primera = {}, sobrantes = [];
-        p.vias.forEach(function(v){
+        /* 🔴 SE ORDENA POR EVIDENCIA ANTES DE ESCOGER.
+           `fundirPersonas` deja las vías del motor delante porque así se
+           pintan en la ficha, y la columna `correo` se llevaba la PRIMERA:
+           o sea la conjetura por patrón, dejando en `otros_canales` el correo
+           que alguien encontró de verdad. Visto en el gold set: la columna
+           traía `jorge.gomez@…` inventado y el real `jorgegomezmd@hotmail.com`
+           quedaba escondido entre los sobrantes. Quien importe esto a HubSpot
+           se lleva el inventado.
+
+           Orden: capturado, luego fuente real del motor, y de último lo
+           inferido. Se ordena una copia; el orden de la ficha no se toca. */
+        var PESO_METODO = {capturado: 0, motor: 1, inferido: 2};
+        var vias = p.vias.slice().sort(function(a, b){
+          return PESO_METODO[metodoDe(a)] - PESO_METODO[metodoDe(b)];
+        });
+
+        var primera = {}, metodo = {}, sobrantes = [];
+        vias.forEach(function(v){
           var k = v.tipo === "telefono" ? "telefono" : v.tipo;
+          var m = metodoDe(v);
           if(["correo", "telefono", "whatsapp", "linkedin"].indexOf(k) >= 0
-             && !primera[k]) { primera[k] = v.valor; return; }
-          sobrantes.push(v.tipo + ":" + v.valor);
+             && !primera[k]) { primera[k] = v.valor; metodo[k] = m; return; }
+          // Cada sobrante lleva su método pegado: sin eso, un correo capturado
+          // y uno inventado por patrón se leen igual dentro de la misma celda.
+          sobrantes.push(v.tipo + ":" + v.valor + "(" + m + ")");
         });
         /* `origen` es la columna que hace honesto el archivo: distingue lo que
            cruzó el motor de lo que alguien vio y escribió.
@@ -3190,8 +3231,8 @@
              buena. Quien importe esto a HubSpot necesita saberlo: ese dato
              existe en Supabase y aún no en Ariad. */
           p.captura ? "si" : "no",
-          primera.correo || "", primera.telefono || "",
-          primera.whatsapp || "", primera.linkedin || "",
+          primera.correo || "", metodo.correo || "",
+          primera.telefono || "", primera.whatsapp || "", primera.linkedin || "",
           sobrantes.join(" | ")
         ].map(celda).join(";"));
       });
