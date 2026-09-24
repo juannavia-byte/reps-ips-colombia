@@ -129,14 +129,22 @@ no hay forma de distinguir un segundo nombre de más de una hermana con el mismo
 apellido. Se juntan editando una y poniéndole el nombre de la otra: al guardar
 se funden, los canales se mudan y la que sobra queda retirada.
 
-### El export del tablero saca DOS archivos
+### El export: un botón, un archivo
 
-Los botones «Exportar filtrado» y «Exportar selección» bajan:
+| Botón | Archivo | Grano | Qué lleva |
+|---|---|---|---|
+| **Exportar contactos** | `contactos_*.csv` | una fila por **persona** | la lista fundida de la ficha: lo del motor y lo capturado |
+| Exportar empresas | `prestadores_filtrado.csv` | una fila por **empresa** | las 37 columnas de siempre, sin cambios |
+| Exportar selección | `prestadores_seleccion.csv` | una fila por empresa | idem, sólo lo marcado |
 
-| Archivo | Grano | Qué lleva |
-|---|---|---|
-| `prestadores_*.csv` | una fila por **empresa** | las 37 columnas de siempre, sin cambios |
-| `contactos_*.csv` | una fila por **persona** | la lista fundida de la ficha: lo del motor y lo capturado |
+«Exportar contactos» usa la selección si hay alguna, y si no lo filtrado.
+
+> 🔴 **Un botón baja un archivo, y no dos.** La primera versión sacaba los dos
+> archivos del mismo clic, y **Chrome bloquea la segunda descarga automática**
+> de una página: aparece un aviso de «¿descargar varios archivos?» y, si no se
+> acepta, llega el de empresas y el de contactos no. Sin error y sin rastro.
+> Se reportó como «no está trayendo los puestos que actualicé», que es
+> exactamente lo que se ve desde fuera.
 
 El de personas sale de `fundirPersonas`, la misma función que pinta la ficha,
 así que lo que se exporta es exactamente lo que se ve. Columnas propias:
@@ -146,8 +154,12 @@ así que lo que se exporta es exactamente lo que se ve. Columnas propias:
   escribió.
 - **`sin_bajar`**: `si` cuando esa persona sigue solo en Supabase y
   `traer_captura.py` todavía no la ha bajado a la base buena.
-- **`otros_canales`**: el segundo correo, el segundo teléfono y todo lo que no
-  cabe en las columnas fijas. No se pierde nada.
+- **`otros_canales`**: el segundo correo, la cuenta de X, el Facebook y todo lo
+  que no cabe en las columnas fijas, como `x:https://x.com/…`. No se pierde nada.
+- **`tier`**: si el motor no lo trae (porque la persona se capturó a mano), se
+  deduce del cargo contra la misma lista de cargos sugeridos que usa la ficha.
+  Sin esto, alguien capturado como «Director general» salía sin prioridad, que
+  es justo la columna por la que se ordena a quién llamar primero.
 
 > 🔴 **Antes el export se llevaba la mitad.** Bajaba solo el archivo de
 > prestadores: ni las personas del motor ni, peor, las que el equipo acababa de
@@ -156,7 +168,13 @@ así que lo que se exporta es exactamente lo que se ve. Columnas propias:
 > ya trabajadas y ver que el CSV no traía ni un nombre.
 >
 > Si la lectura de lo capturado falla (sesión cerrada, por ejemplo), el botón
-> dice **«sin lo capturado»** en vez de bajar un archivo corto en silencio.
+> dice **«⚠ sin lo capturado»** en vez de bajar un archivo corto en silencio.
+
+Lo capturado se pide **por NIT y con `api`**, en lotes de 60, exactamente la
+misma forma de petición que usa la ficha. La primera versión pedía la tabla
+entera con `traerTodo`, que manda cabecera `Range` y no manda
+`Content-Profile`: una segunda manera de pedir lo mismo, con sus propios modos
+de fallar. La ficha lleva meses funcionando; el export usa su camino.
 
 Lo capturado queda en `captura.persona` y `captura.canal` de Supabase, marcado
 «sin bajar», y de ahí vuelve a la base local:
