@@ -3078,6 +3078,23 @@
     ["ingresos_mm","ingresos_millones"],["activos_mm","activos_millones"],
     ["serv_nuevos_12m","servicios_nuevos_12m"]
   ];
+  function celda(v){
+    if(v == null) return "";
+    v = String(v);
+    return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+
+  function descargar(nombre, head, cuerpo){
+    // El BOM va delante o Excel en Windows abre las tildes como jeroglíficos.
+    var blob = new Blob(["﻿" + head + "\r\n" + cuerpo],
+                        {type: "text/csv;charset=utf-8;"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  }
+
   function csv(filas, nombre){
     if(!filas.length) return;
     var head = EXPORT.map(function(p){ return p[1]; }).join(";");
@@ -3091,17 +3108,131 @@
               : p[0] === "_clase" ? (CLASES[r[C.clase]] || r[C.clase])
               : p[0] === "_ese" ? (r[C.ese] === 1 ? "SI" : "NO")
               : r[C[p[0]]];
-        if(v == null) return "";
-        v = String(v);
-        return /[;"\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
+        return celda(v);
       }).join(";");
     }).join("\r\n");
-    var blob = new Blob(["﻿" + head + "\r\n" + body], {type:"text/csv;charset=utf-8;"});
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = nombre;
-    a.click();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    descargar(nombre, head, body);
+  }
+
+  /* ── El CSV de personas ───────────────────────────────────────────────────
+     🔴 EL EXPORT SE LLEVABA LA MITAD DE LO QUE IMPORTA. Bajaba un archivo por
+     PRESTADOR y nada de gente: ni lo que encontró el motor ni, peor, lo que el
+     equipo acababa de capturar a mano en la ficha. Nadie se enteraba, porque
+     el archivo bajaba bien; simplemente venía sin las personas. Pasó de verdad
+     al intentar sacar veinte cuentas ya trabajadas.
+
+     Va en un archivo APARTE y no como columnas del otro, por el grano: el de
+     prestadores es una fila por empresa y este es una fila por PERSONA, que es
+     lo que pide una importación de contactos. Meter «tres personas» dentro de
+     una celda habría dado un archivo que no sirve para importar ni para leer.
+
+     Sale de `fundirPersonas`, la misma función que pinta la ficha, así que lo
+     que se exporta es exactamente lo que se ve, fundido igual y con la misma
+     regla de una fila por ser humano.
+     ──────────────────────────────────────────────────────────────────────── */
+  var COLS_PERSONA = ["nit", "razon_social", "municipio", "departamento",
+    "score_icp", "prioridad_icp", "nombre", "cargo", "tier", "origen",
+    "estado_dato", "sin_bajar", "correo", "telefono", "whatsapp", "linkedin",
+    "otros_canales"];
+
+  function csvPersonas(filas){
+    var cuerpo = [];
+    filas.forEach(function(r){
+      var nit = r[C.nit];
+      fundirPersonas(nit).forEach(function(p){
+        /* De cada tipo se toma la PRIMERA vía, que ya viene ordenada con la
+           capturada por delante de la del motor. El resto no se tira: va a
+           `otros_canales`, porque un segundo correo posible es justo el dato
+           que el equipo se tomó el trabajo de encontrar. */
+        var primera = {}, sobrantes = [];
+        p.vias.forEach(function(v){
+          var k = v.tipo === "telefono" ? "telefono" : v.tipo;
+          if(["correo", "telefono", "whatsapp", "linkedin"].indexOf(k) >= 0
+             && !primera[k]) { primera[k] = v.valor; return; }
+          sobrantes.push(v.tipo + ":" + v.valor);
+        });
+        /* `origen` es la columna que hace honesto el archivo: distingue lo que
+           cruzó el motor de lo que alguien vio y escribió. */
+        var delMotor = p.vias.some(function(v){ return !v.cid; }) || !p.captura;
+        var origen = p.captura && delMotor ? "motor+captura"
+                   : p.captura ? "captura" : "motor";
+        cuerpo.push([
+          nit, r[C.razon_social], r[C.municipio], r[C.departamento],
+          SCORE[r._i] == null ? "" : SCORE[r._i].toFixed(1), PRIOR[r._i],
+          p.nombre, unirCargos(p.cargos), p.tier == null ? "" : p.tier,
+          origen, p.estado || "",
+          /* Lo capturado que `traer_captura.py` todavía no ha bajado a la base
+             buena. Quien importe esto a HubSpot necesita saberlo: ese dato
+             existe en Supabase y aún no en Ariad. */
+          p.captura ? "si" : "no",
+          primera.correo || "", primera.telefono || "",
+          primera.whatsapp || "", primera.linkedin || "",
+          sobrantes.join(" | ")
+        ].map(celda).join(";"));
+      });
+    });
+    return cuerpo;
+  }
+
+  /* Todo lo capturado vivo, de una vez y paginado.
+
+     Se pide SIN filtrar por NIT a propósito: filtrar 10.652 NIT no cabe en una
+     URL, y trocearlo serían cientos de peticiones. Lo capturado son cientos de
+     filas, no cientos de miles, así que bajarlo entero y agrupar acá es más
+     barato y más simple. Y deja `CAPTURADO` caliente para las fichas que se
+     abran después. */
+  function cargarCapturaTodo(){
+    if(!API) return Promise.resolve(false);
+    return traerTodo("persona?retirado=is.false&canal.retirado=is.false" +
+                     "&select=nit,nombre,nombre_clave,cargo,confirmado," +
+                     "canal(id,tipo,valor,valor_norm,ambito,confirmado)")
+      .then(function(filas){
+        var por = {};
+        (filas || []).forEach(function(p){
+          (por[p.nit] = por[p.nit] || []).push(p);
+        });
+        Object.keys(por).forEach(function(nit){
+          CAPTURADO[nit] = por[nit];
+          AVANCE[nit] = por[nit].length;
+        });
+        return true;
+      });
+  }
+
+  /* Los dos archivos, en un solo clic.
+
+     El de personas se baja SIEMPRE que haya alguien, incluso sin sesión: el
+     motor de enriquecimiento viaja en el payload y sus personas se exportan
+     igual. Lo que cambia con sesión es que además se baja lo capturado. */
+  function exportar(filas, base, boton) {
+    if(!filas.length) return;
+    var etiqueta = boton ? boton.textContent : null;
+    if(boton){ boton.disabled = true; boton.textContent = "Exportando…"; }
+
+    var listo = API ? cargarCapturaTodo()["catch"](function(){ return false; })
+                    : Promise.resolve(false);
+    listo.then(function(conCaptura){
+      csv(filas, "prestadores_" + base + ".csv");
+      var personas = csvPersonas(filas);
+      if(personas.length){
+        descargar("contactos_" + base + ".csv",
+                  COLS_PERSONA.join(";"), personas.join("\r\n"));
+      }
+      if(boton){
+        boton.disabled = false;
+        boton.textContent = personas.length
+          ? etiqueta + " · " + personas.length + " personas"
+          : etiqueta;
+        /* Si falló la lectura de lo capturado no se calla: el archivo de
+           prestadores está completo, pero el de personas saldría corto y hay
+           que poder notarlo antes de importarlo a ninguna parte. */
+        if(API && !conCaptura) boton.textContent = etiqueta + " · sin lo capturado";
+        setTimeout(function(){
+          boton.textContent = etiqueta;
+          if(base === "seleccion") boton.disabled = sel.size === 0;
+        }, 4000);
+      }
+    });
   }
 
   // ── eventos
@@ -3191,9 +3322,10 @@
   });
 
   $("clearSel").onclick = function(){ sel.clear(); pintar(); };
-  $("expFiltered").onclick = function(){ csv(vista, "prestadores_filtrado.csv"); };
+  $("expFiltered").onclick = function(){ exportar(vista, "filtrado", this); };
   $("expSel").onclick = function(){
-    csv(ROWS.filter(function(r){ return sel.has(r[C.nit]); }), "prestadores_seleccion.csv");
+    exportar(ROWS.filter(function(r){ return sel.has(r[C.nit]); }),
+             "seleccion", this);
   };
   $("reset").onclick = function(){ limpiar(); filtrar(); };
 
