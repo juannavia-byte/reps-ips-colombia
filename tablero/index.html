@@ -732,7 +732,8 @@
       <span class="count" id="dockCount">—</span>
       <span class="spacer"></span>
       <button class="btn ghost" id="clearSel" type="button">Quitar selección</button>
-      <button class="btn ghost" id="expFiltered" type="button">Exportar filtrado</button>
+      <button class="btn ghost" id="expContactos" type="button">Exportar contactos</button>
+      <button class="btn ghost" id="expFiltered" type="button">Exportar empresas</button>
       <button class="btn primary" id="expSel" type="button" disabled>Exportar selección</button>
     </div>
   </main>
@@ -3152,14 +3153,38 @@
           sobrantes.push(v.tipo + ":" + v.valor);
         });
         /* `origen` es la columna que hace honesto el archivo: distingue lo que
-           cruzó el motor de lo que alguien vio y escribió. */
-        var delMotor = p.vias.some(function(v){ return !v.cid; }) || !p.captura;
-        var origen = p.captura && delMotor ? "motor+captura"
+           cruzó el motor de lo que alguien vio y escribió.
+
+           Se mira si la persona está en el payload del motor, NO si tiene
+           alguna vía sin `cid`: alguien que el motor encontró sin ningún canal
+           y al que el equipo le capturó el teléfono tiene todas las vías
+           capturadas, y aun así viene de las dos partes. */
+        var delMotor = (window.DATOS.contactos || {})[nit];
+        delMotor = !!(delMotor && delMotor.some(function(g){
+          return claveNombre(g[0]) === p.clave;
+        }));
+        var origen = delMotor && p.captura ? "motor+captura"
                    : p.captura ? "captura" : "motor";
+
+        /* El tier del motor no existe para quien se capturó a mano, y dejarlo
+           vacío hacía que una persona capturada como «Director general» se
+           exportara sin prioridad, que es justo la columna por la que se
+           ordena a quién llamar primero. Se deduce del cargo contra la misma
+           lista de cargos sugeridos que usa la ficha. */
+        var tier = p.tier;
+        if(tier == null){
+          (window.DATOS.cargos || []).forEach(function(cg){
+            var k = claveNombre(cg.etiqueta);
+            if(tier == null && p.cargos.some(function(x){ return claveNombre(x) === k; })){
+              tier = cg.tier;
+            }
+          });
+        }
+
         cuerpo.push([
           nit, r[C.razon_social], r[C.municipio], r[C.departamento],
           SCORE[r._i] == null ? "" : SCORE[r._i].toFixed(1), PRIOR[r._i],
-          p.nombre, unirCargos(p.cargos), p.tier == null ? "" : p.tier,
+          p.nombre, unirCargos(p.cargos), tier == null ? "" : tier,
           origen, p.estado || "",
           /* Lo capturado que `traer_captura.py` todavía no ha bajado a la base
              buena. Quien importe esto a HubSpot necesita saberlo: ese dato
@@ -3174,65 +3199,99 @@
     return cuerpo;
   }
 
-  /* Todo lo capturado vivo, de una vez y paginado.
+  /* Lo capturado de unos NIT concretos.
 
-     Se pide SIN filtrar por NIT a propósito: filtrar 10.652 NIT no cabe en una
-     URL, y trocearlo serían cientos de peticiones. Lo capturado son cientos de
-     filas, no cientos de miles, así que bajarlo entero y agrupar acá es más
-     barato y más simple. Y deja `CAPTURADO` caliente para las fichas que se
-     abran después. */
-  function cargarCapturaTodo(){
-    if(!API) return Promise.resolve(false);
-    return traerTodo("persona?retirado=is.false&canal.retirado=is.false" +
-                     "&select=nit,nombre,nombre_clave,cargo,confirmado," +
-                     "canal(id,tipo,valor,valor_norm,ambito,confirmado)")
-      .then(function(filas){
-        var por = {};
-        (filas || []).forEach(function(p){
-          (por[p.nit] = por[p.nit] || []).push(p);
-        });
-        Object.keys(por).forEach(function(nit){
-          CAPTURADO[nit] = por[nit];
-          AVANCE[nit] = por[nit].length;
-        });
-        return true;
+     🔴 POR NIT Y CON `api`, NO CON `traerTodo`. La primera versión pedía la
+     tabla entera con `traerTodo`, que manda cabecera `Range` y NO manda
+     `Content-Profile`: una forma de petición distinta de la que usa la ficha.
+     La ficha lleva meses funcionando; no hay ninguna razón para que el export
+     invente una segunda manera de pedir lo mismo y arriesgarse a que falle por
+     su cuenta. Esto usa `api`, exactamente igual que `cargarCapturado`.
+
+     En lotes de 60 porque `nit=in.(…)` va en la URL: 10.652 NIT no caben, y
+     60 deja la URL holgada por debajo de cualquier límite. Una selección de
+     veinte cuentas es UNA petición. */
+  function cargarCapturaDe(nits){
+    if(!API || !nits.length) return Promise.resolve(false);
+    var lotes = [], tam = 60;
+    for(var i = 0; i < nits.length; i += tam) lotes.push(nits.slice(i, i + tam));
+
+    return lotes.reduce(function(cadena, lote){
+      return cadena.then(function(){
+        var dentro = lote.map(encodeURIComponent).join(",");
+        return api("persona?nit=in.(" + dentro + ")" +
+                   "&retirado=is.false&canal.retirado=is.false" +
+                   "&select=nit,nombre,nombre_clave,cargo,confirmado," +
+                   "canal(id,tipo,valor,valor_norm,ambito,confirmado)")
+          .then(function(filas){
+            /* Se vacían PRIMERO los NIT del lote y se llenan después. Así lo
+               que quede en memoria es lo que acaba de responder la base, y no
+               una mezcla con lo que hubiera de antes: si alguien retiró una
+               persona en otra pestaña, aquí tiene que desaparecer. Y un NIT
+               sin nadie queda como lista vacía, que no es lo mismo que «no
+               consultado». */
+            lote.forEach(function(n){ CAPTURADO[n] = []; });
+            (filas || []).forEach(function(p){
+              (CAPTURADO[p.nit] = CAPTURADO[p.nit] || []).push(p);
+            });
+            lote.forEach(function(n){ AVANCE[n] = CAPTURADO[n].length; });
+          });
       });
+    }, Promise.resolve()).then(function(){ return true; });
   }
 
-  /* Los dos archivos, en un solo clic.
-
-     El de personas se baja SIEMPRE que haya alguien, incluso sin sesión: el
-     motor de enriquecimiento viaja en el payload y sus personas se exportan
-     igual. Lo que cambia con sesión es que además se baja lo capturado. */
-  function exportar(filas, base, boton) {
+  /* El archivo de empresas. Un solo clic, una sola descarga. */
+  function exportarEmpresas(filas, base, boton){
     if(!filas.length) return;
-    var etiqueta = boton ? boton.textContent : null;
-    if(boton){ boton.disabled = true; boton.textContent = "Exportando…"; }
+    csv(filas, "prestadores_" + base + ".csv");
+    if(boton) avisoBoton(boton, filas.length +
+      (filas.length === 1 ? " empresa" : " empresas"));
+  }
 
-    var listo = API ? cargarCapturaTodo()["catch"](function(){ return false; })
+  /* El archivo de personas, con su propio botón.
+
+     🔴 VA APARTE Y NO PEGADO AL OTRO. Los dos archivos salían juntos del mismo
+     clic, y CHROME BLOQUEA LA SEGUNDA DESCARGA automática de una página: sale
+     un aviso de «¿descargar varios archivos?» y, si no se acepta, llega el de
+     empresas y el de contactos no. Sin error, sin nada: el mismo fallo
+     silencioso que este export ya tuvo una vez. Un botón, un archivo.
+
+     Se baja SIEMPRE que haya alguien, incluso sin sesión: las personas del
+     motor viajan en el payload. Lo que añade la sesión es lo capturado. */
+  function exportarContactos(filas, base, boton){
+    if(!filas.length) return;
+    var etiqueta = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = "Leyendo lo capturado…";
+
+    var nits = filas.map(function(r){ return String(r[C.nit]); });
+    var listo = API ? cargarCapturaDe(nits)["catch"](function(){ return false; })
                     : Promise.resolve(false);
     listo.then(function(conCaptura){
-      csv(filas, "prestadores_" + base + ".csv");
       var personas = csvPersonas(filas);
-      if(personas.length){
-        descargar("contactos_" + base + ".csv",
-                  COLS_PERSONA.join(";"), personas.join("\r\n"));
+      boton.disabled = false;
+      if(!personas.length){
+        avisoBoton(boton, "no hay personas", etiqueta);
+        return;
       }
-      if(boton){
-        boton.disabled = false;
-        boton.textContent = personas.length
-          ? etiqueta + " · " + personas.length + " personas"
-          : etiqueta;
-        /* Si falló la lectura de lo capturado no se calla: el archivo de
-           prestadores está completo, pero el de personas saldría corto y hay
-           que poder notarlo antes de importarlo a ninguna parte. */
-        if(API && !conCaptura) boton.textContent = etiqueta + " · sin lo capturado";
-        setTimeout(function(){
-          boton.textContent = etiqueta;
-          if(base === "seleccion") boton.disabled = sel.size === 0;
-        }, 4000);
-      }
+      descargar("contactos_" + base + ".csv",
+                COLS_PERSONA.join(";"), personas.join("\r\n"));
+      /* Si falló la lectura de lo capturado no se calla: el archivo saldría
+         corto y hay que poder notarlo ANTES de importarlo a ninguna parte. */
+      avisoBoton(boton, API && !conCaptura
+        ? "⚠ " + personas.length + ", sin lo capturado"
+        : personas.length + (personas.length === 1 ? " persona" : " personas"),
+        etiqueta);
     });
+  }
+
+  function avisoBoton(boton, texto, volverA){
+    var previo = volverA || boton.textContent;
+    boton.textContent = previo.split(" · ")[0] + " · " + texto;
+    setTimeout(function(){
+      boton.textContent = previo.split(" · ")[0];
+      if(boton.id === "expSel") boton.disabled = sel.size === 0;
+    }, 4500);
   }
 
   // ── eventos
@@ -3322,10 +3381,21 @@
   });
 
   $("clearSel").onclick = function(){ sel.clear(); pintar(); };
-  $("expFiltered").onclick = function(){ exportar(vista, "filtrado", this); };
+  /* Si hay selección se exporta la selección; si no, lo filtrado. Es lo que
+     espera quien acaba de marcar veinte casillas y le da a exportar. */
+  function ambito(){
+    return sel.size
+      ? [ROWS.filter(function(r){ return sel.has(r[C.nit]); }), "seleccion"]
+      : [vista, "filtrado"];
+  }
+  $("expContactos").onclick = function(){
+    var a = ambito();
+    exportarContactos(a[0], a[1], this);
+  };
+  $("expFiltered").onclick = function(){ exportarEmpresas(vista, "filtrado", this); };
   $("expSel").onclick = function(){
-    exportar(ROWS.filter(function(r){ return sel.has(r[C.nit]); }),
-             "seleccion", this);
+    exportarEmpresas(ROWS.filter(function(r){ return sel.has(r[C.nit]); }),
+                     "seleccion", this);
   };
   $("reset").onclick = function(){ limpiar(); filtrar(); };
 
